@@ -70,7 +70,7 @@ export default function AdminLayout() {
             <div className="bg-brand-500 rounded-lg p-1.5">
               <Bike size={16} className="text-white" />
             </div>
-            <span className="text-white font-bold text-sm">Faingana Admin</span>
+            <span className="text-white font-bold text-sm">FAINGANA Admin</span>
           </div>
           <div className="flex items-center gap-3">
             <NotificationBell />
@@ -118,7 +118,7 @@ function SidebarContent({ adminEmail, adminInitial, loggingOut, onSignOut, onNav
             <Bike size={20} className="text-white" />
           </div>
           <div>
-            <p className="text-white font-extrabold text-base leading-tight">Faingana</p>
+            <p className="text-white font-extrabold text-base leading-tight">FAINGANA</p>
             <p className="text-gray-500 text-[10px] font-semibold uppercase tracking-widest">Administration</p>
           </div>
         </div>

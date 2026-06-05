@@ -24,7 +24,7 @@ self.addEventListener('message', (event) => {
 
       self.__messaging.onBackgroundMessage((payload) => {
         const { title, body, icon, data } = payload.notification ?? {}
-        self.registration.showNotification(title ?? 'Faingana', {
+        self.registration.showNotification(title ?? 'FAINGANA', {
           body:    body  ?? '',
           icon:    icon  ?? '/icon-192.png',
           badge:   '/icon-192.png',

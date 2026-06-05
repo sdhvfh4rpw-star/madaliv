@@ -75,7 +75,7 @@ export default function AdminSettings() {
             <Bike size={22} className="text-white" />
           </div>
           <div>
-            <p className="text-white font-bold">Faingana Administration</p>
+            <p className="text-white font-bold">FAINGANA Administration</p>
             <div className="flex items-center gap-1.5 mt-0.5">
               <Shield size={12} className="text-blue-400" />
               <p className="text-blue-400 text-xs font-medium">Compte administrateur unique</p>
@@ -204,7 +204,7 @@ export default function AdminSettings() {
         <div className="flex items-start gap-3">
           <Shield size={16} className="text-blue-400 shrink-0 mt-0.5" />
           <div className="text-sm text-blue-300/80 leading-relaxed">
-            <p className="font-semibold text-blue-300 mb-1">Politique de sécurité Faingana</p>
+            <p className="font-semibold text-blue-300 mb-1">Politique de sécurité FAINGANA</p>
             <ul className="space-y-1 text-xs">
               <li>• Compte admin unique, créé manuellement via Supabase SQL</li>
               <li>• 5 tentatives de connexion max avant verrouillage 15 min</li>

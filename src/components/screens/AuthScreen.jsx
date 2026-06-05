@@ -288,7 +288,7 @@ export default function AuthScreen({ onBack, defaultTab = 'login' }) {
         <h2 className="font-extrabold text-xl text-gray-900 mb-2">
           {tab === 'register' ? 'Compte créé !' : 'Connecté !'}
         </h2>
-        <p className="text-gray-500 text-sm mb-6">Bienvenue sur Faingana 🚀</p>
+        <p className="text-gray-500 text-sm mb-6">Bienvenue sur FAINGANA 🚀</p>
         <button onClick={onBack} className="btn-primary w-full max-w-xs">
           Continuer
         </button>
@@ -307,7 +307,7 @@ export default function AuthScreen({ onBack, defaultTab = 'login' }) {
           <div className="bg-white/20 rounded-xl p-2">
             <Bike size={20} className="text-white" />
           </div>
-          <h1 className="font-extrabold text-xl">Faingana</h1>
+          <h1 className="font-extrabold text-xl">FAINGANA</h1>
         </div>
         <p className="text-white/70 text-sm">Livraison rapide à Madagascar</p>
       </div>

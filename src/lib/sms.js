@@ -50,7 +50,7 @@ export async function sendTrackingSMS(phone, trackingCode) {
   }
 
   const to      = toE164Mg(phone)
-  const message = `Votre livraison Faingana est en route ! Suivez-la ici : ${TRACKING_BASE_URL}?track=${trackingCode}`
+  const message = `Votre livraison FAINGANA est en route ! Suivez-la ici : ${TRACKING_BASE_URL}?track=${trackingCode}`
   const url     = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Messages.json`
 
   // Authentification Basic : base64(SID:TOKEN)
