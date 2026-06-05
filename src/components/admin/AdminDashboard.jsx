@@ -432,27 +432,35 @@ export default function AdminDashboard() {
         <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
           <h2 className="text-white font-bold text-sm mb-4">Courses du jour</h2>
           <div className="flex flex-col gap-3">
-            {[
-              { label: 'Livrées',  value: s.ordersDelivered, color: 'bg-green-500',  pct: Math.round(s.ordersDelivered / s.ordersToday * 100) },
-              { label: 'En cours', value: s.ordersActive,    color: 'bg-orange-500', pct: Math.round(s.ordersActive / s.ordersToday * 100) },
-              { label: 'Annulées', value: s.ordersCancelled, color: 'bg-red-500',    pct: Math.round(s.ordersCancelled / s.ordersToday * 100) },
-            ].map(({ label, value, color, pct }) => (
-              <div key={label}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-gray-400 text-xs">{label}</span>
-                  <span className="text-white text-xs font-bold">{value}</span>
+            {(() => {
+              // Valeurs sécurisées — supporte snake_case (Supabase) et camelCase (mock)
+              const ordersToday     = s?.orders_today     ?? s?.ordersToday     ?? 0
+              const ordersDelivered = s?.orders_delivered ?? s?.ordersDelivered ?? 0
+              const ordersActive    = s?.orders_active    ?? s?.ordersActive    ?? 0
+              const ordersCancelled = s?.orders_cancelled ?? s?.ordersCancelled ?? 0
+              const pct = (n) => ordersToday > 0 ? Math.round((n / ordersToday) * 100) : 0
+              return [
+                { label: 'Livrées',  value: ordersDelivered, color: 'bg-green-500',  pct: pct(ordersDelivered) },
+                { label: 'En cours', value: ordersActive,    color: 'bg-orange-500', pct: pct(ordersActive) },
+                { label: 'Annulées', value: ordersCancelled, color: 'bg-red-500',    pct: pct(ordersCancelled) },
+              ].map(({ label, value, color, pct }) => (
+                <div key={label}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-gray-400 text-xs">{label}</span>
+                    <span className="text-white text-xs font-bold">{value}</span>
+                  </div>
+                  <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                    <div className={`h-full ${color} rounded-full transition-all`} style={{ width: `${pct}%` }} />
+                  </div>
                 </div>
-                <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                  <div className={`h-full ${color} rounded-full transition-all`} style={{ width: `${pct}%` }} />
-                </div>
-              </div>
-            ))}
+              ))
+            })()}
           </div>
 
           {/* Total */}
           <div className="mt-4 pt-4 border-t border-gray-800 flex items-center justify-between">
             <span className="text-gray-500 text-xs">Total</span>
-            <span className="text-white font-extrabold">{s.ordersToday}</span>
+            <span className="text-white font-extrabold">{s?.orders_today ?? s?.ordersToday ?? 0}</span>
           </div>
         </div>
       </div>
