@@ -18,17 +18,11 @@ import AdminValidation from './components/screens/AdminValidation'
 export default function App() {
   return (
     <Routes>
-      {/* ── App client PWA (/  et toutes les sous-routes) ── */}
-      <Route path="/*" element={<ClientApp />} />
+      {/* ── Espace admin — en premier pour éviter que /* ne les capture ── */}
 
-      {/* ── Espace admin (/admin/*) ─────────────────────── */}
-
-      {/* Login — accessible sans auth */}
       <Route path="/admin/login" element={<AdminLogin />} />
 
-      {/* Guard admin — AdminProtectedRoute rend <Outlet /> si authentifié */}
       <Route path="/admin" element={<AdminProtectedRoute />}>
-        {/* AdminLayout enveloppe toutes les pages admin */}
         <Route element={<AdminLayout />}>
           <Route index element={<AdminDashboard />} />
           <Route path="drivers"  element={<AdminValidation isAdminPanel />} />
@@ -38,8 +32,8 @@ export default function App() {
         </Route>
       </Route>
 
-      {/* Catch-all /admin/* → /admin */}
-      <Route path="/admin/*" element={<Navigate to="/admin" replace />} />
+      {/* ── App client PWA — catch-all en dernier ── */}
+      <Route path="/*" element={<ClientApp />} />
     </Routes>
   )
 }
