@@ -7,6 +7,7 @@ import ClientApp from './ClientApp'
 import AdminLogin           from './components/admin/AdminLogin'
 import AdminDashboard       from './components/admin/AdminDashboard'
 import AdminOrders          from './components/admin/AdminOrders'
+import AdminFinance         from './components/admin/AdminFinance'
 import AdminStats           from './components/admin/AdminStats'
 import AdminSettings        from './components/admin/AdminSettings'
 import AdminProtectedRoute  from './components/admin/AdminProtectedRoute'
@@ -28,6 +29,7 @@ export default function App() {
         <Route index element={<AdminDashboard />} />
         <Route path="drivers"  element={<AdminValidation isAdminPanel />} />
         <Route path="orders"   element={<AdminOrders />} />
+        <Route path="finance"  element={<AdminFinance />} />
         <Route path="stats"    element={<AdminStats />} />
         <Route path="settings" element={<AdminSettings />} />
       </Route>

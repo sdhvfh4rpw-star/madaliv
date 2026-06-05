@@ -462,6 +462,151 @@ export async function getRecentOrders(limit = 10) {
 }
 
 // ══════════════════════════════════════════════════════════════
+// RAPPORT FINANCIER MENSUEL
+// ══════════════════════════════════════════════════════════════
+
+/** Structure vide retournée en cas d'erreur ou de mois sans données. */
+function emptyFinanceReport(year, month) {
+  return {
+    ok: false,
+    year, month,
+    summary:  { totalRevenue: 0, totalCommission: 0, totalDriverShare: 0, totalDelivered: 0 },
+    byDay:    [],
+    byDriver: [],
+    payments: [],
+  }
+}
+
+/** Cast numérique sûr — retourne 0 pour null/undefined/NaN. */
+function num(v) {
+  const n = Number(v)
+  return Number.isFinite(n) ? n : 0
+}
+
+/**
+ * Rapport financier d'un mois donné.
+ * @param {number} year   Année (ex: 2026)
+ * @param {number} month  Mois 1-12
+ * @returns {Promise<object>}  jamais d'exception — structure vide si erreur
+ */
+export async function getMonthlyFinanceReport(year, month) {
+  try {
+    // Bornes du mois (month 1-12 → index 0-11)
+    const startISO = new Date(year, month - 1, 1).toISOString()
+    const endISO   = new Date(year, month, 1).toISOString()
+
+    // ── 1. Commandes livrées du mois ─────────────────────────
+    let orders = []
+    try {
+      const res = await supabase
+        .from('orders')
+        .select('created_at, price_ariary, commission, driver_share, driver_id, status')
+        .eq('status', 'delivered')
+        .gte('created_at', startISO)
+        .lt('created_at', endISO)
+      orders = res.error ? [] : (res.data ?? [])
+    } catch { orders = [] }
+
+    // ── 2. Livreurs (id → nom, téléphone) ────────────────────
+    let drivers = []
+    try {
+      const res = await supabase.from('drivers').select('id, name, phone')
+      drivers = res.error ? [] : (res.data ?? [])
+    } catch { drivers = [] }
+    const driverMap = {}
+    for (const d of drivers) driverMap[d.id] = d
+
+    // ── 3. Paiements versés du mois ──────────────────────────
+    let payments = []
+    try {
+      const res = await supabase
+        .from('driver_payments')
+        .select('id, driver_id, amount, created_at')
+        .gte('created_at', startISO)
+        .lt('created_at', endISO)
+        .order('created_at', { ascending: false })
+      payments = res.error ? [] : (res.data ?? [])
+    } catch { payments = [] }
+
+    // ── Agrégat : résumé ─────────────────────────────────────
+    let totalRevenue = 0, totalCommission = 0, totalDriverShare = 0
+    for (const o of orders) {
+      totalRevenue     += num(o.price_ariary)
+      totalCommission  += num(o.commission)
+      totalDriverShare += num(o.driver_share)
+    }
+
+    // ── Agrégat : par jour ───────────────────────────────────
+    const dayMap = {}
+    for (const o of orders) {
+      let dayNum = 0
+      try { dayNum = new Date(o.created_at).getDate() } catch { dayNum = 0 }
+      if (!dayMap[dayNum]) {
+        dayMap[dayNum] = { day: dayNum, count: 0, revenue: 0, commission: 0, driverShare: 0 }
+      }
+      dayMap[dayNum].count       += 1
+      dayMap[dayNum].revenue     += num(o.price_ariary)
+      dayMap[dayNum].commission  += num(o.commission)
+      dayMap[dayNum].driverShare += num(o.driver_share)
+    }
+    const byDay = Object.values(dayMap).sort((a, b) => a.day - b.day)
+
+    // ── Agrégat : par livreur ────────────────────────────────
+    const drvMap = {}
+    function ensureDriver(id) {
+      if (!drvMap[id]) {
+        drvMap[id] = {
+          driverId:    id,
+          name:        driverMap[id]?.name  ?? 'Inconnu',
+          phone:       driverMap[id]?.phone ?? '',
+          trips:       0,
+          totalEarned: 0,
+          totalPaid:   0,
+        }
+      }
+      return drvMap[id]
+    }
+    for (const o of orders) {
+      const d = ensureDriver(o.driver_id ?? 'unknown')
+      d.trips       += 1
+      d.totalEarned += num(o.driver_share)
+    }
+    for (const p of payments) {
+      const d = ensureDriver(p.driver_id ?? 'unknown')
+      d.totalPaid += num(p.amount)
+    }
+    const byDriver = Object.values(drvMap)
+      .map(d => ({ ...d, balance: d.totalEarned - d.totalPaid }))
+      .sort((a, b) => b.totalEarned - a.totalEarned)
+
+    // ── Liste des paiements (avec nom livreur) ───────────────
+    const paymentsList = payments.map(p => ({
+      id:         p.id,
+      driverName: driverMap[p.driver_id]?.name ?? 'Inconnu',
+      amount:     num(p.amount),
+      created_at: p.created_at,
+    }))
+
+    return {
+      ok: true,
+      year, month,
+      summary: {
+        totalRevenue,
+        totalCommission,
+        totalDriverShare,
+        totalDelivered: orders.length,
+      },
+      byDay,
+      byDriver,
+      payments: paymentsList,
+    }
+  } catch (err) {
+    console.error('[getMonthlyFinanceReport]', err)
+    return emptyFinanceReport(year, month)
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
 // REALTIME
 // ══════════════════════════════════════════════════════════════
 

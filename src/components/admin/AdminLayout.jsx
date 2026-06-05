@@ -3,13 +3,14 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAdminAuth } from '../../contexts/AdminAuthContext'
 import {
   Bike, LayoutDashboard, Users, Package, BarChart2,
-  LogOut, Menu, X, ShieldCheck, Bell, Settings, ChevronRight
+  LogOut, Menu, X, ShieldCheck, Bell, Settings, ChevronRight, Wallet
 } from 'lucide-react'
 
 const NAV_ITEMS = [
   { to: '/admin',          label: 'Tableau de bord', icon: LayoutDashboard, end: true },
   { to: '/admin/drivers',  label: 'Livreurs',         icon: Users },
   { to: '/admin/orders',   label: 'Commandes',        icon: Package },
+  { to: '/admin/finance',  label: 'Finances',         icon: Wallet },
   { to: '/admin/stats',    label: 'Statistiques',     icon: BarChart2 },
   { to: '/admin/settings', label: 'Paramètres',       icon: Settings },
 ]
