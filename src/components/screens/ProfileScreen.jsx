@@ -1,12 +1,122 @@
 import { useState, useEffect } from 'react'
 import {
   LogOut, Package, Phone, Mail, Star, Clock, ChevronDown, ChevronUp,
-  CreditCard, Image, Camera, TrendingUp, Calendar
+  CreditCard, Image, Camera, TrendingUp, Calendar, AlertCircle, CheckCircle2, Send
 } from 'lucide-react'
 import { useClientAuth } from '../../contexts/ClientAuthContext'
 import { getClientOrders, formatPhoneDisplay } from '../../lib/clientAuth'
 import { formatAr } from '../../lib/pricing'
+import { submitClaim } from '../../lib/supabase'
+import { sendClaimEmail } from '../../lib/email'
 import RatingModal from '../ui/RatingModal'
+
+// ── Catégories de réclamation ─────────────────────────────────
+const CLAIM_CATEGORIES = [
+  { id: 'lost',    label: 'Colis perdu',      icon: '📦' },
+  { id: 'damaged', label: 'Colis endommagé',  icon: '💔' },
+  { id: 'delay',   label: 'Retard',           icon: '⏰' },
+  { id: 'driver',  label: 'Problème livreur',  icon: '🏍️' },
+  { id: 'other',   label: 'Autre',            icon: '🔖' },
+]
+
+// ── Formulaire de réclamation (inline) ────────────────────────
+function ClaimForm({ orderCode, clientPhone, onClose }) {
+  const [category, setCategory] = useState('')
+  const [message,  setMessage]  = useState('')
+  const [sending,  setSending]  = useState(false)
+  const [done,     setDone]     = useState(false)
+  const [error,    setError]    = useState(null)
+
+  async function handleSend() {
+    if (!category) { setError('Choisissez une catégorie'); return }
+    setSending(true)
+    setError(null)
+    const catLabel = CLAIM_CATEGORIES.find(c => c.id === category)?.label ?? category
+    const ok = await submitClaim(orderCode, clientPhone, catLabel, message.trim() || null)
+    // Notification email support (non bloquant, ne casse jamais)
+    sendClaimEmail({ orderCode, clientPhone, category: catLabel, message: message.trim() })
+    setSending(false)
+    if (ok) {
+      setDone(true)
+      setTimeout(() => onClose?.(), 1800)
+    } else {
+      setError('Envoi impossible — réessayez plus tard.')
+    }
+  }
+
+  if (done) {
+    return (
+      <div className="mt-3 pt-3 border-t border-gray-100 flex flex-col items-center gap-2 py-3 animate-fade-in">
+        <CheckCircle2 size={28} className="text-green-500" />
+        <p className="text-sm font-semibold text-green-700">Réclamation envoyée</p>
+        <p className="text-xs text-gray-400 text-center">Notre équipe vous contactera bientôt.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mt-3 pt-3 border-t border-gray-100 flex flex-col gap-3 animate-fade-in">
+      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Signaler un problème</p>
+
+      {/* Catégories */}
+      <div className="flex flex-wrap gap-1.5">
+        {CLAIM_CATEGORIES.map(c => (
+          <button
+            key={c.id}
+            type="button"
+            onClick={() => { setCategory(c.id); setError(null) }}
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition
+              ${category === c.id
+                ? 'bg-brand-500 text-white border-brand-500'
+                : 'bg-white text-gray-600 border-gray-200 hover:border-brand-300'}`}
+          >
+            <span>{c.icon}</span> {c.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Message */}
+      <textarea
+        rows={2}
+        value={message}
+        onChange={e => setMessage(e.target.value)}
+        placeholder="Décrivez le problème (optionnel)…"
+        className="input-field resize-none text-sm"
+      />
+
+      {error && (
+        <p className="text-xs text-red-500 flex items-center gap-1">
+          <AlertCircle size={12} /> {error}
+        </p>
+      )}
+
+      {/* Actions */}
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={onClose}
+          className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-500 text-sm font-semibold active:scale-95 transition"
+        >
+          Annuler
+        </button>
+        <button
+          type="button"
+          onClick={handleSend}
+          disabled={sending}
+          className="flex-1 py-2.5 rounded-xl bg-brand-500 text-white text-sm font-bold flex items-center justify-center gap-2 active:scale-95 transition disabled:opacity-50"
+        >
+          {sending ? (
+            <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+            </svg>
+          ) : <Send size={14} />}
+          Envoyer
+        </button>
+      </div>
+    </div>
+  )
+}
 
 // ── Constantes ────────────────────────────────────────────────
 const STATUS = {
@@ -21,10 +131,12 @@ const STATUS = {
 const PAYMENT_LABEL = { mvola: '🔵 MVola', orange: '🟠 Orange Money', cash: '💵 Espèces' }
 
 // ── Composant : carte de commande cliquable ───────────────────
-function OrderCard({ order, onRate }) {
-  const [expanded, setExpanded] = useState(false)
+function OrderCard({ order, onRate, clientPhone }) {
+  const [expanded, setExpanded]   = useState(false)
+  const [claimOpen, setClaimOpen] = useState(false)
   const st = STATUS[order.status] ?? STATUS.pending
   const needsRating = order.status === 'delivered' && !order.rating
+  const canClaim    = order.status === 'delivered'
 
   return (
     <div className={`card transition-all ${expanded ? 'ring-2 ring-brand-200' : ''}`}>
@@ -151,6 +263,23 @@ function OrderCard({ order, onRate }) {
             >
               <Star size={15} /> Noter le livreur
             </button>
+          )}
+
+          {/* Réclamation — uniquement sur commandes livrées */}
+          {canClaim && !claimOpen && (
+            <button
+              onClick={() => setClaimOpen(true)}
+              className="w-full py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm font-semibold flex items-center justify-center gap-2 hover:border-red-300 hover:text-red-500 active:scale-[0.98] transition"
+            >
+              <AlertCircle size={15} /> Signaler un problème
+            </button>
+          )}
+          {canClaim && claimOpen && (
+            <ClaimForm
+              orderCode={order.tracking_code}
+              clientPhone={clientPhone}
+              onClose={() => setClaimOpen(false)}
+            />
           )}
         </div>
       )}
@@ -354,7 +483,7 @@ export default function ProfileScreen({ onNavigate }) {
           ) : (
             <div className="flex flex-col gap-2">
               {filtered.map(order => (
-                <OrderCard key={order.id} order={order} onRate={setRatingOrder} />
+                <OrderCard key={order.id} order={order} onRate={setRatingOrder} clientPhone={client.phone} />
               ))}
             </div>
           )}

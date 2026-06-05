@@ -654,3 +654,72 @@ export function subscribeToDriverLocation(driverId, onUpdate) {
     )
     .subscribe()
 }
+
+// ══════════════════════════════════════════════════════════════
+// RÉCLAMATIONS (claims)
+// ══════════════════════════════════════════════════════════════
+
+/**
+ * Enregistre une réclamation client. Ultra-défensive.
+ * @returns {Promise<boolean>}  true si enregistrée, false sinon — jamais d'exception
+ */
+export async function submitClaim(orderCode, clientPhone, category, message) {
+  try {
+    const { error } = await supabase.from('claims').insert([{
+      order_code:   orderCode ? String(orderCode) : null,
+      client_phone: clientPhone ? String(clientPhone) : null,
+      category:     category ? String(category) : 'other',
+      message:      message ? String(message) : null,
+      status:       'open',
+    }])
+    if (error) {
+      console.error('[submitClaim] Supabase error:', error.message)
+      return false
+    }
+    return true
+  } catch (err) {
+    console.error('[submitClaim] exception:', err)
+    return false
+  }
+}
+
+/**
+ * Liste toutes les réclamations (admin). Jamais d'exception → [].
+ */
+export async function getClaims() {
+  try {
+    const { data, error } = await supabase
+      .from('claims')
+      .select('id, order_code, client_phone, category, message, status, created_at')
+      .order('created_at', { ascending: false })
+    if (error) {
+      console.error('[getClaims] Supabase error:', error.message)
+      return []
+    }
+    return data ?? []
+  } catch (err) {
+    console.error('[getClaims] exception:', err)
+    return []
+  }
+}
+
+/**
+ * Marque une réclamation comme résolue. Jamais d'exception.
+ * @returns {Promise<boolean>}
+ */
+export async function resolveClaim(claimId) {
+  try {
+    const { error } = await supabase
+      .from('claims')
+      .update({ status: 'resolved' })
+      .eq('id', claimId)
+    if (error) {
+      console.error('[resolveClaim] Supabase error:', error.message)
+      return false
+    }
+    return true
+  } catch (err) {
+    console.error('[resolveClaim] exception:', err)
+    return false
+  }
+}
