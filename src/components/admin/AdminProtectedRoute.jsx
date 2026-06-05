@@ -1,7 +1,13 @@
-import { Navigate, Outlet, useLocation } from 'react-router-dom'
+import { Navigate, useLocation } from 'react-router-dom'
 import { useAdminAuth } from '../../contexts/AdminAuthContext'
 import { Bike } from 'lucide-react'
+import AdminLayout from './AdminLayout'
 
+/**
+ * Garde admin — inclut AdminLayout directement.
+ * Évite la route pathless imbriquée qui peut poser des problèmes
+ * de propagation de contexte Outlet sur certains déploiements.
+ */
 export default function AdminProtectedRoute() {
   const { admin, loading } = useAdminAuth()
   const location = useLocation()
@@ -30,7 +36,6 @@ export default function AdminProtectedRoute() {
     return <Navigate to="/admin/login" state={{ from: location }} replace />
   }
 
-  // Utilise <Outlet /> directement — AdminLayout est déclaré dans App.jsx
-  // comme enfant de cette route, donc <Outlet /> rend AdminLayout + ses enfants
-  return <Outlet />
+  // AdminLayout est ici — son <Outlet /> reçoit directement les routes enfants
+  return <AdminLayout />
 }
