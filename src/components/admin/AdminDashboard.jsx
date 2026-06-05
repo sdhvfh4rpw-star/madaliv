@@ -433,9 +433,9 @@ export default function AdminDashboard() {
           <h2 className="text-white font-bold text-sm mb-4">Courses du jour</h2>
           <div className="flex flex-col gap-3">
             {[
-              { label: 'Livrées',  value: stats.ordersDelivered, color: 'bg-green-500',  pct: Math.round(stats.ordersDelivered / stats.ordersToday * 100) },
-              { label: 'En cours', value: stats.ordersActive,    color: 'bg-orange-500', pct: Math.round(stats.ordersActive / stats.ordersToday * 100) },
-              { label: 'Annulées', value: stats.ordersCancelled, color: 'bg-red-500',    pct: Math.round(stats.ordersCancelled / stats.ordersToday * 100) },
+              { label: 'Livrées',  value: s.ordersDelivered, color: 'bg-green-500',  pct: Math.round(s.ordersDelivered / s.ordersToday * 100) },
+              { label: 'En cours', value: s.ordersActive,    color: 'bg-orange-500', pct: Math.round(s.ordersActive / s.ordersToday * 100) },
+              { label: 'Annulées', value: s.ordersCancelled, color: 'bg-red-500',    pct: Math.round(s.ordersCancelled / s.ordersToday * 100) },
             ].map(({ label, value, color, pct }) => (
               <div key={label}>
                 <div className="flex items-center justify-between mb-1">
@@ -452,7 +452,7 @@ export default function AdminDashboard() {
           {/* Total */}
           <div className="mt-4 pt-4 border-t border-gray-800 flex items-center justify-between">
             <span className="text-gray-500 text-xs">Total</span>
-            <span className="text-white font-extrabold">{stats.ordersToday}</span>
+            <span className="text-white font-extrabold">{s.ordersToday}</span>
           </div>
         </div>
       </div>
