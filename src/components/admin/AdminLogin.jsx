@@ -1,15 +1,23 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAdminAuth } from '../../contexts/AdminAuthContext'
 
 export default function AdminLogin() {
-  const { signIn } = useAdminAuth()
-  const navigate   = useNavigate()
+  const { signIn, admin } = useAdminAuth()
+  const navigate = useNavigate()
 
   const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
   const [error,    setError]    = useState('')
   const [loading,  setLoading]  = useState(false)
+
+  // Rediriger APRÈS que React ait commité la mise à jour de admin
+  // (évite la race condition avec navigate('/admin') appelé avant setAdmin)
+  useEffect(() => {
+    if (admin) {
+      navigate('/admin', { replace: true })
+    }
+  }, [admin, navigate])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -17,7 +25,7 @@ export default function AdminLogin() {
     setLoading(true)
     try {
       await signIn(email, password)
-      navigate('/admin')
+      // Pas de navigate ici — le useEffect s'en charge une fois admin mis à jour
     } catch (err) {
       setError(err.message || 'Erreur de connexion.')
     } finally {

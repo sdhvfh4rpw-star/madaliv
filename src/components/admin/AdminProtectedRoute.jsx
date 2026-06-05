@@ -1,14 +1,8 @@
-import { Navigate, useLocation } from 'react-router-dom'
+import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAdminAuth } from '../../contexts/AdminAuthContext'
 import { Bike } from 'lucide-react'
 
-/**
- * Garde de route admin.
- * - Affiche un spinner pendant la vérification de session.
- * - Redirige vers /admin/login si non authentifié.
- * - Laisse passer si session admin valide.
- */
-export default function AdminProtectedRoute({ children }) {
+export default function AdminProtectedRoute() {
   const { admin, loading } = useAdminAuth()
   const location = useLocation()
 
@@ -33,9 +27,10 @@ export default function AdminProtectedRoute({ children }) {
   }
 
   if (!admin) {
-    // Mémoriser la destination pour rediriger après login
     return <Navigate to="/admin/login" state={{ from: location }} replace />
   }
 
-  return children
+  // Utilise <Outlet /> directement — AdminLayout est déclaré dans App.jsx
+  // comme enfant de cette route, donc <Outlet /> rend AdminLayout + ses enfants
+  return <Outlet />
 }

@@ -26,20 +26,16 @@ export default function App() {
       {/* Login — accessible sans auth */}
       <Route path="/admin/login" element={<AdminLogin />} />
 
-      {/* /admin seul → dashboard */}
-      <Route
-        path="/admin"
-        element={
-          <AdminProtectedRoute>
-            <AdminLayout />
-          </AdminProtectedRoute>
-        }
-      >
-        <Route index element={<AdminDashboard />} />
-        <Route path="drivers" element={<AdminValidation isAdminPanel />} />
-        <Route path="orders"  element={<AdminOrders />} />
-        <Route path="stats"   element={<AdminStats />} />
-        <Route path="settings" element={<AdminSettings />} />
+      {/* Guard admin — AdminProtectedRoute rend <Outlet /> si authentifié */}
+      <Route path="/admin" element={<AdminProtectedRoute />}>
+        {/* AdminLayout enveloppe toutes les pages admin */}
+        <Route element={<AdminLayout />}>
+          <Route index element={<AdminDashboard />} />
+          <Route path="drivers"  element={<AdminValidation isAdminPanel />} />
+          <Route path="orders"   element={<AdminOrders />} />
+          <Route path="stats"    element={<AdminStats />} />
+          <Route path="settings" element={<AdminSettings />} />
+        </Route>
       </Route>
 
       {/* Catch-all /admin/* → /admin */}

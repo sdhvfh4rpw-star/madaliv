@@ -212,9 +212,23 @@ export default function AdminDashboard() {
           <p className="text-gray-400 text-sm">{greeting} 👋</p>
           <h1 className="text-white font-extrabold text-2xl mt-0.5">Tableau de bord</h1>
           <p className="text-gray-600 text-xs mt-1 font-mono">
-            {time.toLocaleDateString('fr-MG', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
+            {(() => {
+              try {
+                return time.toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
+              } catch {
+                return time.toLocaleDateString()
+              }
+            })()}
             {' · '}
-            <span className="text-gray-500">{time.toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+            <span className="text-gray-500">
+              {(() => {
+                try {
+                  return time.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                } catch {
+                  return time.toLocaleTimeString()
+                }
+              })()}
+            </span>
           </p>
         </div>
         <button
