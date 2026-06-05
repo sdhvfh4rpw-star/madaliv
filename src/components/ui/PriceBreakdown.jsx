@@ -134,7 +134,7 @@ export default function PriceBreakdown({ pricing, loading, error, showCommission
             </div>
             <div className="flex items-center justify-between text-xs">
               <span className="flex items-center gap-1.5 text-gray-500">
-                <TrendingUp size={11} /> Commission MadaLiv (15%)
+                <TrendingUp size={11} /> Commission Faingana (15%)
               </span>
               <span className="font-semibold text-gray-500">{formatAr(pricing.commission)}</span>
             </div>

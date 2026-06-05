@@ -18,7 +18,7 @@ export default function HomeScreen({ t, onNavigate }) {
             <div className="bg-white rounded-xl p-1.5">
               <Bike size={20} className="text-brand-500" />
             </div>
-            <span className="font-extrabold text-lg tracking-tight">MadaLiv</span>
+            <span className="font-extrabold text-lg tracking-tight">Faingana</span>
           </div>
           <h2 className="text-2xl font-extrabold leading-tight whitespace-pre-line mb-2">
             {t('heroTitle')}

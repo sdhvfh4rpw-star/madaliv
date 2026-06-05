@@ -19,7 +19,7 @@ export default function AdminProtectedRoute() {
           <div className="bg-brand-500 rounded-xl p-2">
             <Bike size={20} className="text-white" />
           </div>
-          <span className="text-white font-extrabold text-xl tracking-tight">MadaLiv</span>
+          <span className="text-white font-extrabold text-xl tracking-tight">Faingana</span>
         </div>
         <div className="flex items-center gap-2 text-gray-400 text-sm">
           <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">

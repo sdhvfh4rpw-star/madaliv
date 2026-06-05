@@ -13,8 +13,8 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
-        name: 'MadaLiv - Livraison Moto Madagascar',
-        short_name: 'MadaLiv',
+        name: 'Faingana - Livraison Moto Madagascar',
+        short_name: 'Faingana',
         description: 'Serivisy fandefasana entana haingana eto Madagasikara',
         theme_color: '#E84C1E',
         background_color: '#FFFFFF',

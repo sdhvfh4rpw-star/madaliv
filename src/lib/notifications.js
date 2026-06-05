@@ -135,7 +135,7 @@ export async function onMessageReceived(handler) {
     return onMessage(messaging, (payload) => {
       console.log('[notifications] Message reçu:', payload)
       handler({
-        title: payload.notification?.title ?? 'MadaLiv',
+        title: payload.notification?.title ?? 'Faingana',
         body:  payload.notification?.body  ?? '',
         data:  payload.data ?? {},
         icon:  payload.notification?.icon  ?? '🚴',

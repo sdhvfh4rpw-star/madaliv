@@ -20,7 +20,7 @@
 const TWILIO_SID   = import.meta.env.VITE_TWILIO_SID   ?? ''
 const TWILIO_TOKEN = import.meta.env.VITE_TWILIO_TOKEN  ?? ''
 const TWILIO_FROM  = import.meta.env.VITE_TWILIO_PHONE  ?? ''
-const TRACKING_BASE_URL = 'https://madaliv.netlify.app'
+const TRACKING_BASE_URL = 'https://madaliv.vercel.app'
 
 /**
  * Formate un numéro malgache en E.164 (+261XXXXXXXXX).
@@ -50,7 +50,7 @@ export async function sendTrackingSMS(phone, trackingCode) {
   }
 
   const to      = toE164Mg(phone)
-  const message = `Votre livraison MadaLiv est en route ! Suivez-la ici : ${TRACKING_BASE_URL}?track=${trackingCode}`
+  const message = `Votre livraison Faingana est en route ! Suivez-la ici : ${TRACKING_BASE_URL}?track=${trackingCode}`
   const url     = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Messages.json`
 
   // Authentification Basic : base64(SID:TOKEN)

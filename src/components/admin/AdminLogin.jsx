@@ -36,7 +36,7 @@ export default function AdminLogin() {
   return (
     <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
-        <h1 className="text-white text-2xl font-bold text-center mb-8">MadaLiv — Admin</h1>
+        <h1 className="text-white text-2xl font-bold text-center mb-8">Faingana — Admin</h1>
 
         <form onSubmit={handleSubmit} className="bg-gray-900 rounded-2xl p-8 flex flex-col gap-4">
           {error && (
