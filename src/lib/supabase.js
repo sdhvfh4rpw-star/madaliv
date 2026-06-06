@@ -323,6 +323,27 @@ export async function getPendingDrivers() {
   return data ?? []
 }
 
+/**
+ * Tous les livreurs (tous statuts) pour le panneau admin.
+ * Ultra-défensive : ne lève jamais d'exception → [] en cas d'erreur.
+ */
+export async function getAllDrivers() {
+  try {
+    const { data, error } = await supabase
+      .from('drivers')
+      .select('*')
+      .order('created_at', { ascending: false })
+    if (error) {
+      console.error('[getAllDrivers] Supabase error:', error.message)
+      return []
+    }
+    return Array.isArray(data) ? data : []
+  } catch (err) {
+    console.error('[getAllDrivers] exception:', err)
+    return []
+  }
+}
+
 export async function approveDriver(driverId, adminUserId) {
   const { error } = await supabase.from('drivers')
     .update({ validation_status: 'approved', validated_by: adminUserId, validated_at: new Date(), rejection_reason: null })
