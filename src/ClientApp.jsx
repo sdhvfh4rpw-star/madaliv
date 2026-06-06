@@ -15,6 +15,7 @@ import DriverDashboard from './components/screens/DriverDashboard'
 import DriverRegistration from './components/screens/DriverRegistration'
 import AuthScreen from './components/screens/AuthScreen'
 import ProfileScreen from './components/screens/ProfileScreen'
+import MerchantDashboard from './components/screens/MerchantDashboard'
 
 const FULLSCREEN = ['driver-register', 'auth']
 
@@ -26,6 +27,7 @@ const SCREEN_TITLES = {
   'driver-register': null,
   auth:              null,
   profile:           'profile',
+  merchant:          'merchant',
 }
 
 export default function ClientApp() {
@@ -122,11 +124,18 @@ export default function ClientApp() {
             ? <ProfileScreen t={t} onNavigate={handleNavChange} />
             : <AuthScreen onBack={() => setScreen('home')} />
         )}
+        {screen === 'merchant'        && (
+          isLoggedIn && client?.is_merchant
+            ? <MerchantDashboard t={t} onNavigate={handleNavChange} />
+            : isLoggedIn
+              ? <ProfileScreen t={t} onNavigate={handleNavChange} />
+              : <AuthScreen onBack={() => setScreen('home')} />
+        )}
       </main>
 
       {!isFullscreen && (
         <BottomNav
-          current={screen === 'auth' ? 'profile' : screen}
+          current={screen === 'auth' || screen === 'merchant' ? 'profile' : screen}
           onChange={handleNavChange}
           t={t}
           isLoggedIn={isLoggedIn}

@@ -68,10 +68,11 @@ export function ClientAuthProvider({ children }) {
   }, [user])
 
   const isLoggedIn = !!user
+  const isMerchant = !!client?.is_merchant   // raccourci commerçant
 
   return (
     <ClientAuthContext.Provider value={{
-      user, client, loading, isLoggedIn,
+      user, client, loading, isLoggedIn, isMerchant,
       register, login, logout, refreshProfile,
     }}>
       {children}

@@ -6,6 +6,7 @@ export const translations = {
     track: 'Suivre',
     dashboard: 'Livreur',
     profile: 'Mon compte',
+    merchant: 'Espace boutique',
 
     // ── Home ──────────────────────────────────────────────
     heroTitle: 'Livraison rapide\nà Madagascar',

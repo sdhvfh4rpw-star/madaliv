@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Eye, EyeOff, Phone, User, Lock, Mail, AlertCircle, CheckCircle2, Bike } from 'lucide-react'
+import { Eye, EyeOff, Phone, User, Lock, Mail, AlertCircle, CheckCircle2, Bike, Store } from 'lucide-react'
 import { useClientAuth } from '../../contexts/ClientAuthContext'
 import PhotoUpload from '../ui/PhotoUpload'
 
@@ -117,6 +117,7 @@ function RegisterTab({ onSuccess, onSwitchTab }) {
   const { register } = useClientAuth()
   const [form, setForm] = useState({
     fullName: '', phone: '', email: '', password: '', confirmPwd: '', avatar: null,
+    isMerchant: false, shopName: '',
   })
   const [showPwd,  setShowPwd]  = useState(false)
   const [loading,  setLoading]  = useState(false)
@@ -135,6 +136,7 @@ function RegisterTab({ onSuccess, onSwitchTab }) {
     if (!validatePassword(form.password))e.password  = 'Minimum 6 caractères'
     if (form.password !== form.confirmPwd) e.confirmPwd = 'Les mots de passe ne correspondent pas'
     if (!form.avatar)                    e.avatar    = 'Selfie obligatoire'
+    if (form.isMerchant && !form.shopName.trim()) e.shopName = 'Nom de la boutique obligatoire'
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -151,6 +153,8 @@ function RegisterTab({ onSuccess, onSwitchTab }) {
         email:          form.email.trim() || undefined,
         password:       form.password,
         avatarDataURL:  form.avatar,
+        isMerchant:     form.isMerchant,
+        shopName:       form.isMerchant ? form.shopName.trim() : null,
       })
       onSuccess?.()
     } catch (err) {
@@ -250,6 +254,50 @@ function RegisterTab({ onSuccess, onSwitchTab }) {
           error={!!errors.avatar}
         />
         {errors.avatar && <p className="text-xs text-red-500 mt-1">{errors.avatar}</p>}
+      </div>
+
+      {/* Compte commerçant */}
+      <div>
+        <button
+          type="button"
+          onClick={() => set('isMerchant', !form.isMerchant)}
+          className={`flex items-center gap-3 w-full p-3.5 rounded-2xl border-2 transition text-left
+            ${form.isMerchant ? 'border-brand-400 bg-brand-50' : 'border-gray-200 bg-white'}`}
+        >
+          <div className={`rounded-xl p-2 ${form.isMerchant ? 'bg-brand-100' : 'bg-gray-100'}`}>
+            <Store size={18} className={form.isMerchant ? 'text-brand-500' : 'text-gray-400'} />
+          </div>
+          <div className="flex-1">
+            <p className={`text-sm font-semibold ${form.isMerchant ? 'text-brand-700' : 'text-gray-600'}`}>
+              Je suis un commerçant
+            </p>
+            <p className="text-xs text-gray-400">Accédez à votre espace boutique</p>
+          </div>
+          <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition
+            ${form.isMerchant ? 'bg-brand-500 border-brand-500' : 'border-gray-300'}`}>
+            {form.isMerchant && <CheckCircle2 size={14} className="text-white" />}
+          </div>
+        </button>
+
+        {/* Nom de la boutique — visible si commerçant */}
+        {form.isMerchant && (
+          <div className="mt-3 animate-slide-up">
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">
+              Nom de la boutique <span className="text-brand-500">*</span>
+            </label>
+            <div className="relative">
+              <Store size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                value={form.shopName}
+                onChange={e => set('shopName', e.target.value)}
+                placeholder="Ex: Épicerie Rasoa"
+                className={`input-field pl-9 ${errors.shopName ? 'border-red-400' : ''}`}
+              />
+            </div>
+            {errors.shopName && <p className="text-xs text-red-500 mt-1">{errors.shopName}</p>}
+          </div>
+        )}
       </div>
 
       <button type="submit" disabled={loading} className="btn-primary w-full mt-1">

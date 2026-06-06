@@ -39,11 +39,11 @@ export function formatPhoneDisplay(phone) {
 // ── Inscription ───────────────────────────────────────────────
 
 /**
- * Crée un compte client.
- * @param {{ fullName, phone, email?, password, avatarDataURL? }} params
+ * Crée un compte client (ou commerçant).
+ * @param {{ fullName, phone, email?, password, avatarDataURL?, isMerchant?, shopName? }} params
  * @returns {{ client, user, error? }}
  */
-export async function signUpClient({ fullName, phone, email, password, avatarDataURL }) {
+export async function signUpClient({ fullName, phone, email, password, avatarDataURL, isMerchant, shopName }) {
   const authEmail = phoneToAuthEmail(phone)
 
   // 1. Créer le compte Supabase Auth
@@ -77,12 +77,14 @@ export async function signUpClient({ fullName, phone, email, password, avatarDat
   const { data: client, error: clientErr } = await supabase
     .from('clients')
     .upsert({
-      user_id:    user.id,
-      name:       fullName,
-      phone:      normalizePhone(phone),
-      email:      email || null,
-      auth_email: authEmail,
-      avatar_url: avatarUrl,
+      user_id:     user.id,
+      name:        fullName,
+      phone:       normalizePhone(phone),
+      email:       email || null,
+      auth_email:  authEmail,
+      avatar_url:  avatarUrl,
+      is_merchant: Boolean(isMerchant),
+      shop_name:   isMerchant ? (shopName?.trim() || null) : null,
     }, { onConflict: 'auth_email' })
     .select('*')
     .single()
@@ -125,7 +127,14 @@ export async function getClientProfile(userId) {
     .select('*')
     .eq('user_id', userId)
     .maybeSingle()
-  return data
+  if (!data) return null
+  // Expose explicitement les champs commerçant (défensif : valeurs par défaut
+  // si les colonnes n'existent pas encore en base ou sont NULL).
+  return {
+    ...data,
+    is_merchant: data.is_merchant ?? false,
+    shop_name:   data.shop_name ?? null,
+  }
 }
 
 export async function updateClientProfile(clientId, updates) {
@@ -144,7 +153,7 @@ export async function updateClientProfile(clientId, updates) {
 export async function getClientOrders(clientId, limit = 20) {
   const { data, error } = await supabase
     .from('orders')
-    .select('id, tracking_code, status, created_at, price_ariary, pickup_label, delivery_label, payment_method, payment_status, rating')
+    .select('id, tracking_code, status, created_at, price_ariary, pickup_label, delivery_label, recipient_phone, payment_method, payment_status, rating')
     .eq('client_id', clientId)
     .order('created_at', { ascending: false })
     .limit(limit)

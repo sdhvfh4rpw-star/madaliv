@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import {
   LogOut, Package, Phone, Mail, Star, Clock, ChevronDown, ChevronUp,
-  CreditCard, Image, Camera, TrendingUp, Calendar, AlertCircle, CheckCircle2, Send
+  CreditCard, Image, Camera, TrendingUp, Calendar, AlertCircle, CheckCircle2, Send,
+  Store, ChevronRight
 } from 'lucide-react'
 import { useClientAuth } from '../../contexts/ClientAuthContext'
 import { getClientOrders, formatPhoneDisplay } from '../../lib/clientAuth'
@@ -325,7 +326,7 @@ function MonthlyStats({ orders }) {
 
 // ── Écran principal ───────────────────────────────────────────
 export default function ProfileScreen({ onNavigate }) {
-  const { client, logout }      = useClientAuth()
+  const { client, logout, isMerchant } = useClientAuth()
   const [orders,     setOrders]     = useState([])
   const [ordLoad,    setOrdLoad]    = useState(true)
   const [loggingOut, setLoggingOut] = useState(false)
@@ -437,6 +438,25 @@ export default function ProfileScreen({ onNavigate }) {
       </div>
 
       <div className="px-4 pt-4 flex flex-col gap-4">
+        {/* Accès espace boutique — uniquement pour les commerçants */}
+        {isMerchant && (
+          <button
+            onClick={() => onNavigate?.('merchant')}
+            className="w-full flex items-center gap-3 p-4 rounded-2xl bg-gradient-to-br from-gray-900 to-gray-800 text-white active:scale-[0.98] transition shadow-sm"
+          >
+            <div className="w-10 h-10 rounded-xl bg-brand-500 flex items-center justify-center shrink-0">
+              <Store size={20} className="text-white" />
+            </div>
+            <div className="flex-1 text-left min-w-0">
+              <p className="font-bold text-sm">Mon espace boutique</p>
+              <p className="text-white/60 text-xs truncate">
+                {(client.shop_name && String(client.shop_name).trim()) || 'Gérer mes livraisons'}
+              </p>
+            </div>
+            <ChevronRight size={18} className="text-white/50 shrink-0" />
+          </button>
+        )}
+
         {/* Stats mensuelles */}
         <MonthlyStats orders={orders} />
 
