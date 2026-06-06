@@ -97,13 +97,13 @@ export async function createOrder(payload) {
       // Migration : ALTER TABLE orders ADD COLUMN IF NOT EXISTS recipient_phone TEXT;
       recipient_phone: rest.recipient_phone != null ? safeStr(rest.recipient_phone) : null,
 
-      // Paiement
+      // Paiement — uniquement Mobile Money (MVola / Orange Money)
       // Migration :
-      //   ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method TEXT DEFAULT 'cash';
+      //   ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method TEXT DEFAULT 'mvola';
       //   ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_status TEXT DEFAULT 'pending';
-      payment_method: ['mvola','orange','cash'].includes(rest.payment_method)
-                        ? rest.payment_method : 'cash',
-      payment_status: ['paid','cash','pending','failed'].includes(rest.payment_status)
+      payment_method: ['mvola','orange'].includes(rest.payment_method)
+                        ? rest.payment_method : 'mvola',
+      payment_status: ['paid','pending','failed'].includes(rest.payment_status)
                         ? rest.payment_status : 'pending',
 
       // Enum — valeurs acceptées par le schéma SQL

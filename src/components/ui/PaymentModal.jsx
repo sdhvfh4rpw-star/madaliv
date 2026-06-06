@@ -2,7 +2,7 @@
  * PaymentModal — sélection du mode de paiement
  * ─────────────────────────────────────────────────────────────
  * États :
- *   select   → choix MVola / Orange Money / Espèces
+ *   select   → choix MVola / Orange Money
  *   waiting  → instructions USSD + attente confirmation
  *   success  → paiement confirmé (affiché brièvement)
  *
@@ -17,7 +17,7 @@ import { useState, useEffect } from 'react'
 import { X, Phone, CheckCircle2, Loader2, AlertTriangle } from 'lucide-react'
 import {
   PAYMENT_METHODS, getUssdInstruction,
-  initMVola, initOrangeMoney, initCashPayment, formatUssdAmount
+  initMVola, initOrangeMoney, formatUssdAmount
 } from '../../lib/payment'
 import { formatAr } from '../../lib/pricing'
 
@@ -67,17 +67,16 @@ export default function PaymentModal({ amount, orderCode, onSuccess, onCancel })
   }, [screen])
 
   async function handlePay() {
-    if (method !== 'cash' && !phone.trim()) {
+    if (!phone.trim()) {
       setError('Entrez votre numéro mobile money')
       return
     }
     setError(null)
     setScreen('waiting')
 
-    let result
-    if      (method === 'mvola')  result = await initMVola(amount, phone, orderCode)
-    else if (method === 'orange') result = await initOrangeMoney(amount, phone, orderCode)
-    else                          result = await initCashPayment()
+    const result = method === 'orange'
+      ? await initOrangeMoney(amount, phone, orderCode)
+      : await initMVola(amount, phone, orderCode)
 
     if (!result.ok) {
       setScreen('select')
@@ -92,7 +91,7 @@ export default function PaymentModal({ amount, orderCode, onSuccess, onCancel })
     setTimeout(() => onSuccess(result), 1200)
   }
 
-  const instruction = (method !== 'cash' && screen === 'waiting')
+  const instruction = (screen === 'waiting')
     ? getUssdInstruction(method, amount, orderCode)
     : null
 
@@ -203,71 +202,43 @@ export default function PaymentModal({ amount, orderCode, onSuccess, onCancel })
           <p className="text-2xl font-extrabold text-brand-600 mt-1">{formatAr(amount)}</p>
         </div>
 
-        {/* Méthodes */}
+        {/* Méthodes — uniquement Mobile Money */}
         <div className="flex flex-col gap-2">
           <MethodButton method="mvola"  selected={method === 'mvola'}  onSelect={setMethod} />
           <MethodButton method="orange" selected={method === 'orange'} onSelect={setMethod} />
-
-          {/* Espèces */}
-          <button
-            type="button"
-            onClick={() => setMethod('cash')}
-            className={`flex items-center gap-3 w-full p-4 rounded-2xl border-2 transition active:scale-[0.98]
-              ${method === 'cash'
-                ? 'border-gray-500 bg-gray-50'
-                : 'border-gray-200 bg-white hover:border-gray-300'}`}
-          >
-            <span className="text-2xl">💵</span>
-            <div className="flex-1 text-left">
-              <p className={`font-bold text-sm ${method === 'cash' ? 'text-gray-900' : 'text-gray-800'}`}>
-                Payer à la livraison
-              </p>
-              <p className="text-[11px] text-gray-400">Espèces au livreur</p>
-            </div>
-            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition
-              ${method === 'cash' ? 'bg-gray-700 border-transparent' : 'border-gray-300'}`}>
-              {method === 'cash' && <div className="w-2 h-2 rounded-full bg-white" />}
-            </div>
-          </button>
         </div>
 
         {/* Champ numéro mobile money */}
-        {method !== 'cash' && (
-          <div className="animate-slide-up">
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">
-              Votre numéro {PAYMENT_METHODS[method]?.name}
-            </label>
-            <div className="relative">
-              <Phone size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="tel"
-                value={phone}
-                onChange={e => { setPhone(e.target.value); setError(null) }}
-                placeholder="Ex: 034 12 345 67"
-                className={`input-field pl-9 ${error ? 'border-red-400 bg-red-50' : ''}`}
-                autoFocus
-              />
-            </div>
-            {error && (
-              <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
-                <AlertTriangle size={11} /> {error}
-              </p>
-            )}
+        <div className="animate-slide-up">
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">
+            Votre numéro {PAYMENT_METHODS[method]?.name}
+          </label>
+          <div className="relative">
+            <Phone size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="tel"
+              value={phone}
+              onChange={e => { setPhone(e.target.value); setError(null) }}
+              placeholder="Ex: 034 12 345 67"
+              className={`input-field pl-9 ${error ? 'border-red-400 bg-red-50' : ''}`}
+              autoFocus
+            />
           </div>
-        )}
+          {error && (
+            <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+              <AlertTriangle size={11} /> {error}
+            </p>
+          )}
+        </div>
 
         {/* Bouton payer */}
         <button
           type="button"
           onClick={handlePay}
           className={`w-full py-3.5 rounded-2xl font-bold text-sm text-white transition active:scale-[0.98] shadow-md
-            ${method === 'mvola'  ? 'bg-blue-500 hover:bg-blue-600' :
-              method === 'orange' ? 'bg-orange-500 hover:bg-orange-600' :
-                                    'bg-gray-700 hover:bg-gray-800'}`}
+            ${method === 'orange' ? 'bg-orange-500 hover:bg-orange-600' : 'bg-blue-500 hover:bg-blue-600'}`}
         >
-          {method === 'cash'
-            ? '✅ Confirmer — Payer à la livraison'
-            : `💳 Payer ${formatAr(amount)} par ${PAYMENT_METHODS[method]?.name}`}
+          💳 Payer {formatAr(amount)} par {PAYMENT_METHODS[method]?.name}
         </button>
 
         {/* Sécurité */}

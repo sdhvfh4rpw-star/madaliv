@@ -129,7 +129,7 @@ const STATUS = {
   cancelled: { label: 'Annulée',    dot: 'bg-red-400',    text: 'text-red-600',    bg: 'bg-red-50'     },
 }
 
-const PAYMENT_LABEL = { mvola: '🔵 MVola', orange: '🟠 Orange Money', cash: '💵 Espèces' }
+const PAYMENT_LABEL = { mvola: '🔵 MVola', orange: '🟠 Orange Money' }
 
 // ── Composant : carte de commande cliquable ───────────────────
 function OrderCard({ order, onRate, clientPhone }) {

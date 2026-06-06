@@ -72,6 +72,11 @@ export default function OrderScreen({ t }) {
   // ── Soumission → Supabase (reçoit le résultat de paiement) ───
   async function handleSubmit(payment = null) {
     if (!pickup || !delivery || !pricing?.valid) return
+    // Paiement Mobile Money confirmé obligatoire — pas de création sans paiement
+    if (!payment || payment.status !== 'paid') {
+      setSubmitError('Le paiement Mobile Money doit être confirmé avant de créer la commande.')
+      return
+    }
     setLoading(true)
     setSubmitError(null)
     try {
@@ -119,7 +124,7 @@ export default function OrderScreen({ t }) {
         driver_share:    driverShare,
         commission,
         distance_km:     distanceKm,
-        payment_method:  payment?.method  ?? 'cash',
+        payment_method:  payment?.method  ?? 'mvola',
         payment_status:  payment?.status  ?? 'pending',
       })
       // order peut être null (erreur Supabase ou RLS) → on continue avec fallback
@@ -147,7 +152,7 @@ export default function OrderScreen({ t }) {
         pickupLabel:    safePickupLabel,
         deliveryLabel:  safeDeliveryLabel,
         recipientPhone: recipientPhone.trim() || null,
-        paymentMethod:  payment?.method ?? 'cash',
+        paymentMethod:  payment?.method ?? 'mvola',
         paymentStatus:  payment?.status ?? 'pending',
         paymentTest:    payment?.testMode ?? false,
       })
@@ -223,12 +228,12 @@ export default function OrderScreen({ t }) {
             <span className="text-gray-500">Paiement</span>
             <span className={`font-semibold flex items-center gap-1
               ${snapshot.paymentStatus === 'paid' ? 'text-green-600' : 'text-gray-600'}`}>
-              {snapshot.paymentStatus === 'paid' ? '✅ Payé' : '💵 À la livraison'}
+              {snapshot.paymentStatus === 'paid' ? '✅ Payé' : 'En attente'}
               {snapshot.paymentTest && (
                 <span className="text-[9px] bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded-full">test</span>
               )}
-              {snapshot.paymentMethod !== 'cash' && PAYMENT_METHODS[snapshot.paymentMethod] && (
-                <span className="ml-1">{PAYMENT_METHODS[snapshot.paymentMethod].logo}</span>
+              {PAYMENT_METHODS[snapshot.paymentMethod] && (
+                <span className="ml-1">{PAYMENT_METHODS[snapshot.paymentMethod].logo} {PAYMENT_METHODS[snapshot.paymentMethod].name}</span>
               )}
             </span>
           </div>

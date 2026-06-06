@@ -91,8 +91,8 @@ export const PAYMENT_METHODS = {
 /**
  * @typedef {object} PaymentResult
  * @property {boolean} ok
- * @property {'mvola'|'orange'|'cash'} method
- * @property {'paid'|'cash'|'failed'} status
+ * @property {'mvola'|'orange'} method
+ * @property {'paid'|'failed'} status
  * @property {boolean} testMode
  * @property {string} [transactionId]
  * @property {string} [error]
@@ -182,9 +182,4 @@ export async function initOrangeMoney(amount, phone, orderCode) {
     console.error('[payment] Orange Money error →', err)
     return { ok: false, method: 'orange', status: 'failed', error: err.message }
   }
-}
-
-/** Paiement à la livraison (pas d'appel réseau). */
-export async function initCashPayment() {
-  return { ok: true, method: 'cash', status: 'cash', testMode: false }
 }
