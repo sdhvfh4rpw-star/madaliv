@@ -1,1 +1,9 @@
 node_modules/
+
+# Variables d'environnement — NE JAMAIS committer (contient des clés/API)
+.env
+.env.local
+.env.*.local
+
+# On garde le modèle public (sans valeurs réelles)
+!.env.example
