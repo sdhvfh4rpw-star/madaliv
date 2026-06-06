@@ -112,12 +112,71 @@ function LoginTab({ onSuccess, onSwitchTab }) {
   )
 }
 
+// ── Écran de choix : Particulier / Commerçant ─────────────────
+function AccountTypeChooser({ onChoose, onSwitchTab }) {
+  const OPTIONS = [
+    {
+      id: 'particulier',
+      icon: User,
+      title: 'Particulier',
+      desc: 'Pour envoyer ou recevoir des colis',
+      accent: 'from-blue-500 to-blue-600',
+      ring: 'hover:border-blue-400',
+    },
+    {
+      id: 'commercant',
+      icon: Store,
+      title: 'Commerçant',
+      desc: 'Pour une boutique qui livre ses clients',
+      accent: 'from-brand-500 to-brand-600',
+      ring: 'hover:border-brand-400',
+    },
+  ]
+
+  return (
+    <div className="flex flex-col gap-4 pt-2 animate-fade-in">
+      <p className="text-center text-sm text-gray-500">
+        Quel type de compte souhaitez-vous créer ?
+      </p>
+
+      {OPTIONS.map(({ id, icon: Icon, title, desc, accent, ring }) => (
+        <button
+          key={id}
+          type="button"
+          onClick={() => onChoose?.(id)}
+          className={`flex items-center gap-4 w-full p-5 rounded-3xl border-2 border-gray-200 bg-white
+            text-left transition active:scale-[0.98] ${ring}`}
+        >
+          <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${accent} flex items-center justify-center shrink-0 shadow-sm`}>
+            <Icon size={26} className="text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-extrabold text-gray-900 text-base">{title}</p>
+            <p className="text-xs text-gray-500 mt-0.5">{desc}</p>
+          </div>
+        </button>
+      ))}
+
+      <p className="text-center text-xs text-gray-500 mt-1">
+        Déjà inscrit ?{' '}
+        <button type="button" onClick={onSwitchTab} className="text-brand-500 font-semibold">
+          Se connecter
+        </button>
+      </p>
+    </div>
+  )
+}
+
 // ── Onglet Inscription ────────────────────────────────────────
 function RegisterTab({ onSuccess, onSwitchTab }) {
   const { register } = useClientAuth()
+
+  // Étape 1 : choix du type de compte (null tant que non choisi)
+  const [accountType, setAccountType] = useState(null)  // 'particulier' | 'commercant'
+  const isMerchant = accountType === 'commercant'
+
   const [form, setForm] = useState({
-    fullName: '', phone: '', email: '', password: '', confirmPwd: '', avatar: null,
-    isMerchant: false, shopName: '',
+    fullName: '', phone: '', email: '', password: '', confirmPwd: '', avatar: null, shopName: '',
   })
   const [showPwd,  setShowPwd]  = useState(false)
   const [loading,  setLoading]  = useState(false)
@@ -129,6 +188,12 @@ function RegisterTab({ onSuccess, onSwitchTab }) {
     setErrors(e => ({ ...e, [field]: null }))
   }
 
+  function backToChooser() {
+    setAccountType(null)
+    setError(null)
+    setErrors({})
+  }
+
   function validate() {
     const e = {}
     if (!form.fullName.trim())           e.fullName  = 'Nom obligatoire'
@@ -136,7 +201,7 @@ function RegisterTab({ onSuccess, onSwitchTab }) {
     if (!validatePassword(form.password))e.password  = 'Minimum 6 caractères'
     if (form.password !== form.confirmPwd) e.confirmPwd = 'Les mots de passe ne correspondent pas'
     if (!form.avatar)                    e.avatar    = 'Selfie obligatoire'
-    if (form.isMerchant && !form.shopName.trim()) e.shopName = 'Nom de la boutique obligatoire'
+    if (isMerchant && !form.shopName.trim()) e.shopName = 'Nom de la boutique obligatoire'
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -153,8 +218,8 @@ function RegisterTab({ onSuccess, onSwitchTab }) {
         email:          form.email.trim() || undefined,
         password:       form.password,
         avatarDataURL:  form.avatar,
-        isMerchant:     form.isMerchant,
-        shopName:       form.isMerchant ? form.shopName.trim() : null,
+        isMerchant:     isMerchant,
+        shopName:       isMerchant ? form.shopName.trim() : null,
       })
       onSuccess?.()
     } catch (err) {
@@ -169,8 +234,37 @@ function RegisterTab({ onSuccess, onSwitchTab }) {
     }
   }
 
+  // ── Étape 1 : pas encore de type choisi → afficher le sélecteur ──
+  if (!accountType) {
+    return <AccountTypeChooser onChoose={setAccountType} onSwitchTab={onSwitchTab} />
+  }
+
+  // ── Étape 2 : formulaire ─────────────────────────────────────
+  const TypeIcon = isMerchant ? Store : User
+  const typeLabel = isMerchant ? 'Commerçant' : 'Particulier'
+
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4 pt-2">
+      {/* En-tête : type choisi + retour */}
+      <div className="flex items-center justify-between bg-gray-50 rounded-2xl px-3 py-2.5">
+        <div className="flex items-center gap-2">
+          <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isMerchant ? 'bg-brand-100' : 'bg-blue-100'}`}>
+            <TypeIcon size={16} className={isMerchant ? 'text-brand-600' : 'text-blue-600'} />
+          </div>
+          <div>
+            <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wide leading-none">Type de compte</p>
+            <p className="text-sm font-bold text-gray-800">{typeLabel}</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={backToChooser}
+          className="text-xs font-semibold text-brand-500 hover:text-brand-600 px-2 py-1"
+        >
+          ← Changer
+        </button>
+      </div>
+
       {error && (
         <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5">
           <AlertCircle size={15} className="text-red-500 shrink-0 mt-0.5" />
@@ -256,49 +350,25 @@ function RegisterTab({ onSuccess, onSwitchTab }) {
         {errors.avatar && <p className="text-xs text-red-500 mt-1">{errors.avatar}</p>}
       </div>
 
-      {/* Compte commerçant */}
-      <div>
-        <button
-          type="button"
-          onClick={() => set('isMerchant', !form.isMerchant)}
-          className={`flex items-center gap-3 w-full p-3.5 rounded-2xl border-2 transition text-left
-            ${form.isMerchant ? 'border-brand-400 bg-brand-50' : 'border-gray-200 bg-white'}`}
-        >
-          <div className={`rounded-xl p-2 ${form.isMerchant ? 'bg-brand-100' : 'bg-gray-100'}`}>
-            <Store size={18} className={form.isMerchant ? 'text-brand-500' : 'text-gray-400'} />
+      {/* Nom de la boutique — uniquement pour les commerçants */}
+      {isMerchant && (
+        <div className="animate-slide-up">
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">
+            Nom de la boutique <span className="text-brand-500">*</span>
+          </label>
+          <div className="relative">
+            <Store size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={form.shopName}
+              onChange={e => set('shopName', e.target.value)}
+              placeholder="Ex: Épicerie Rasoa"
+              className={`input-field pl-9 ${errors.shopName ? 'border-red-400' : ''}`}
+            />
           </div>
-          <div className="flex-1">
-            <p className={`text-sm font-semibold ${form.isMerchant ? 'text-brand-700' : 'text-gray-600'}`}>
-              Je suis un commerçant
-            </p>
-            <p className="text-xs text-gray-400">Accédez à votre espace boutique</p>
-          </div>
-          <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition
-            ${form.isMerchant ? 'bg-brand-500 border-brand-500' : 'border-gray-300'}`}>
-            {form.isMerchant && <CheckCircle2 size={14} className="text-white" />}
-          </div>
-        </button>
-
-        {/* Nom de la boutique — visible si commerçant */}
-        {form.isMerchant && (
-          <div className="mt-3 animate-slide-up">
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">
-              Nom de la boutique <span className="text-brand-500">*</span>
-            </label>
-            <div className="relative">
-              <Store size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                value={form.shopName}
-                onChange={e => set('shopName', e.target.value)}
-                placeholder="Ex: Épicerie Rasoa"
-                className={`input-field pl-9 ${errors.shopName ? 'border-red-400' : ''}`}
-              />
-            </div>
-            {errors.shopName && <p className="text-xs text-red-500 mt-1">{errors.shopName}</p>}
-          </div>
-        )}
-      </div>
+          {errors.shopName && <p className="text-xs text-red-500 mt-1">{errors.shopName}</p>}
+        </div>
+      )}
 
       <button type="submit" disabled={loading} className="btn-primary w-full mt-1">
         {loading ? (
