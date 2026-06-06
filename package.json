@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@sentry/react": "^10.56.0",
     "@supabase/supabase-js": "^2.43.4",
     "firebase": "^10.14.1",
     "leaflet": "^1.9.4",
