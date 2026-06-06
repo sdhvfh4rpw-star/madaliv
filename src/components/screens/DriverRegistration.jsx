@@ -1,9 +1,11 @@
 import { useState } from 'react'
-import { Bike, User, CheckCircle2, AlertCircle, ChevronRight } from 'lucide-react'
+import { Bike, User, CheckCircle2, AlertCircle, ChevronRight, Lock } from 'lucide-react'
 import PhotoUpload from '../ui/PhotoUpload'
 import OtpVerification from '../ui/OtpVerification'
 import { registerDriver } from '../../lib/supabase'
 import { uploadDriverDocs } from '../../lib/storage'
+import { signUpDriverAuth, signInDriver, getDriverByUserId } from '../../lib/driverAuth'
+import { useDriverAuth } from '../../contexts/DriverAuthContext'
 
 const STEPS = ['infos', 'phone', 'docs', 'review']
 
@@ -13,9 +15,11 @@ const CITIES = [
 ]
 
 export default function DriverRegistration({ t, onBack }) {
+  const { refresh } = useDriverAuth()
   const [step, setStep]     = useState(0)
   const [form, setForm]     = useState({
     fullName: '', phone: '', city: '', bikeModel: '', bikeColor: '',
+    password: '', confirmPassword: '',
     profilePhoto: null, fullBodyPhoto: null, cinPhoto: null, bikePhoto: null,
     phoneVerified: false,
   })
@@ -40,6 +44,8 @@ export default function DriverRegistration({ t, onBack }) {
     }
     if (step === 1) {
       if (!form.phoneVerified) e.phoneVerified = true
+      if (!form.password || form.password.length < 6) e.password = true
+      if (form.confirmPassword !== form.password)     e.confirmPassword = true
     }
     if (step === 2) {
       if (!form.profilePhoto)  e.profilePhoto  = true
@@ -59,13 +65,44 @@ export default function DriverRegistration({ t, onBack }) {
     setSubmitting(true)
     setSubmitError(null)
     try {
-      // 1. Créer d'abord un driver sans photos pour obtenir l'ID
-      const tempId = crypto.randomUUID()
+      // 1. Créer le compte auth livreur (téléphone → email interne + mot de passe).
+      //    On récupère son user.id pour lier la ligne drivers via user_id.
+      let userId = null
+      try {
+        const user = await signUpDriverAuth({ phone: form.phone, password: form.password })
+        userId = user?.id ?? null
+      } catch (authErr) {
+        // Compte auth déjà créé lors d'une tentative précédente → on se connecte
+        // pour récupérer l'id et poursuivre (idempotence).
+        const msg = authErr?.message || ''
+        if (/already|registered|exists|duplicate/i.test(msg)) {
+          try {
+            const res = await signInDriver({ phone: form.phone, password: form.password })
+            userId = res?.user?.id ?? null
+          } catch {
+            throw new Error('Ce numéro a déjà un compte livreur. Connectez-vous plutôt depuis l’écran de connexion livreur.')
+          }
+        } else {
+          throw authErr
+        }
+      }
 
-      // 2. Uploader les 4 photos dans Supabase Storage
+      // 1b. Si une ligne drivers existe déjà pour ce compte (tentative
+      //     précédente réussie côté drivers), on ne ré-insère pas.
+      if (userId) {
+        const existing = await getDriverByUserId(userId)
+        if (existing) {
+          await refresh()
+          setSubmitted(true)
+          return
+        }
+      }
+
+      // 2. Uploader les 4 photos dans Supabase Storage (dossier = userId si dispo)
+      const folderId = userId || crypto.randomUUID()
       let profilePhotoUrl = null, fullBodyPhotoUrl = null, cinPhotoUrl = null, bikePhotoUrl = null
       try {
-        const urls = await uploadDriverDocs(tempId, {
+        const urls = await uploadDriverDocs(folderId, {
           profile:  form.profilePhoto,
           fullBody: form.fullBodyPhoto,
           cin:      form.cinPhoto,
@@ -80,7 +117,7 @@ export default function DriverRegistration({ t, onBack }) {
         console.warn('[DriverRegistration] Storage indisponible:', storageErr.message)
       }
 
-      // 3. Insérer dans la table drivers
+      // 3. Insérer dans la table drivers, liée au compte auth via user_id
       await registerDriver({
         name:             form.fullName,
         phone:            form.phone,
@@ -91,7 +128,12 @@ export default function DriverRegistration({ t, onBack }) {
         fullBodyPhotoUrl,
         cinPhotoUrl,
         bikePhotoUrl,
+        userId,
       })
+
+      // 4. Rafraîchir le contexte livreur (le compte est désormais connecté
+      //    et en attente de validation).
+      try { await refresh() } catch { /* non bloquant */ }
 
       setSubmitted(true)
     } catch (err) {
@@ -266,6 +308,55 @@ export default function DriverRegistration({ t, onBack }) {
                 <AlertCircle size={13} /> Vérifiez votre numéro avant de continuer
               </p>
             )}
+
+            {/* Mot de passe de connexion */}
+            <div className="pt-2 border-t border-gray-100">
+              <p className="text-sm text-gray-500 mb-3">
+                Choisissez un mot de passe : il vous servira à vous connecter à votre espace livreur
+                (téléphone + mot de passe).
+              </p>
+
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">
+                Mot de passe <span className="text-brand-500">*</span>
+              </label>
+              <div className="relative mb-3">
+                <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="password"
+                  value={form.password}
+                  onChange={e => set('password', e.target.value)}
+                  placeholder="Au moins 6 caractères"
+                  autoComplete="new-password"
+                  className={`input-field pl-9 ${errors.password ? 'border-red-400 bg-red-50' : ''}`}
+                />
+              </div>
+
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">
+                Confirmer le mot de passe <span className="text-brand-500">*</span>
+              </label>
+              <div className="relative">
+                <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="password"
+                  value={form.confirmPassword}
+                  onChange={e => set('confirmPassword', e.target.value)}
+                  placeholder="Retapez le mot de passe"
+                  autoComplete="new-password"
+                  className={`input-field pl-9 ${errors.confirmPassword ? 'border-red-400 bg-red-50' : ''}`}
+                />
+              </div>
+
+              {errors.password && (
+                <p className="text-xs text-red-500 flex items-center gap-1 mt-2">
+                  <AlertCircle size={13} /> Le mot de passe doit faire au moins 6 caractères
+                </p>
+              )}
+              {errors.confirmPassword && !errors.password && (
+                <p className="text-xs text-red-500 flex items-center gap-1 mt-2">
+                  <AlertCircle size={13} /> Les mots de passe ne correspondent pas
+                </p>
+              )}
+            </div>
           </div>
         )}
 

@@ -6,6 +6,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { signUpClient, signInClient, signOutClient, getClientProfile } from '../lib/clientAuth'
+import { isDriverEmail } from '../lib/driverAuth'
 
 const ClientAuthContext = createContext(null)
 
@@ -17,7 +18,9 @@ export function ClientAuthProvider({ children }) {
   // Vérifier la session existante au chargement
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
+      // On ignore les sessions livreur (espace email distinct) :
+      // elles ne doivent jamais être interprétées comme un client.
+      if (session?.user && !isDriverEmail(session.user.email)) {
         setUser(session.user)
         const profile = await getClientProfile(session.user.id)
         setClient(profile)
@@ -26,7 +29,7 @@ export function ClientAuthProvider({ children }) {
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session?.user) {
+      if (session?.user && !isDriverEmail(session.user.email)) {
         setUser(session.user)
         const profile = await getClientProfile(session.user.id)
         setClient(profile)

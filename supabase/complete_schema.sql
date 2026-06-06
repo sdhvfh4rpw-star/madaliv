@@ -400,9 +400,12 @@ CREATE POLICY "order_client_own" ON orders FOR ALL
 -- Livreur : commandes pending (pour les voir) + ses propres
 CREATE POLICY "order_driver_see_pending" ON orders FOR SELECT
   USING  (status = 'pending' OR driver_id = my_driver_id() OR is_admin());
--- Livreur : mettre à jour ses propres courses
+-- Livreur : réclamer une course pending + mettre à jour ses propres courses.
+-- USING autorise les commandes pending (driver_id encore NULL au moment de
+-- l'acceptation) ; WITH CHECK garantit qu'un livreur ne peut se l'attribuer
+-- qu'à lui-même.
 CREATE POLICY "order_driver_update" ON orders FOR UPDATE
-  USING  (driver_id = my_driver_id() OR is_admin())
+  USING  (status = 'pending' OR driver_id = my_driver_id() OR is_admin())
   WITH CHECK (driver_id = my_driver_id() OR is_admin());
 -- Insertion publique (client non-authenti fié)
 CREATE POLICY "order_insert_anon" ON orders FOR INSERT

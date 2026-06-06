@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import { AdminAuthProvider } from './contexts/AdminAuthContext'
 import { NotificationProvider } from './contexts/NotificationContext'
 import { ClientAuthProvider } from './contexts/ClientAuthContext'
+import { DriverAuthProvider } from './contexts/DriverAuthContext'
 import App from './App'
 import './index.css'
 
@@ -13,7 +14,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <AdminAuthProvider>
         <NotificationProvider>
           <ClientAuthProvider>
-            <App />
+            <DriverAuthProvider>
+              <App />
+            </DriverAuthProvider>
           </ClientAuthProvider>
         </NotificationProvider>
       </AdminAuthProvider>

@@ -111,7 +111,7 @@ export default function ClientApp() {
         {screen === 'home'            && <HomeScreen       t={t} onNavigate={handleNavChange} />}
         {screen === 'order'           && <OrderScreen      t={t} />}
         {screen === 'track'           && <TrackingScreen   t={t} />}
-        {screen === 'dashboard'       && <DriverDashboard  t={t} />}
+        {screen === 'dashboard'       && <DriverDashboard  t={t} onRegister={() => setScreen('driver-register')} />}
         {screen === 'driver-register' && <DriverRegistration t={t} onBack={() => setScreen('home')} />}
         {screen === 'auth'            && (
           <AuthScreen
