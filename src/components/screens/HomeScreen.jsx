@@ -1,12 +1,29 @@
-import { Package, MapPin, Bike, ChevronRight, Clock, Star } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Package, MapPin, Bike, ChevronRight, Star } from 'lucide-react'
 import StatusBadge from '../ui/StatusBadge'
+import { useClientAuth } from '../../contexts/ClientAuthContext'
+import { getClientOrders } from '../../lib/clientAuth'
 
-const MOCK_ORDERS = [
-  { id: 1, tracking_code: 'MDL-2847', status: 'ontheway', pickup: 'Analakely', delivery: 'Ambohimanarina', eta: 12 },
-  { id: 2, tracking_code: 'MDL-2801', status: 'accepted',  pickup: 'Behoririka',  delivery: 'Isotry',          eta: 25 },
-]
+const ACTIVE_STATUSES = ['pending', 'accepted', 'pickup', 'ontheway']
 
 export default function HomeScreen({ t, onNavigate }) {
+  const { client } = useClientAuth()
+  const [activeOrders, setActiveOrders] = useState([])
+
+  // Charge les vraies commandes en cours du client connecté
+  useEffect(() => {
+    let alive = true
+    if (!client?.id) { setActiveOrders([]); return }
+    getClientOrders(client.id, 20)
+      .then(data => {
+        if (!alive) return
+        const list = Array.isArray(data) ? data : []
+        setActiveOrders(list.filter(o => ACTIVE_STATUSES.includes(o?.status)))
+      })
+      .catch(() => { if (alive) setActiveOrders([]) })
+    return () => { alive = false }
+  }, [client?.id])
+
   return (
     <div className="pb-24 animate-fade-in">
       {/* Hero */}
@@ -62,14 +79,14 @@ export default function HomeScreen({ t, onNavigate }) {
         </button>
       </div>
 
-      {/* Active orders */}
+      {/* Active orders — vraies commandes du client connecté */}
       <div className="px-4 mt-6">
         <h3 className="font-bold text-sm text-gray-700 mb-3">{t('activeOrders')}</h3>
-        {MOCK_ORDERS.length === 0 ? (
+        {activeOrders.length === 0 ? (
           <div className="card text-center py-8 text-gray-400 text-sm">{t('noActiveOrders')}</div>
         ) : (
           <div className="flex flex-col gap-3">
-            {MOCK_ORDERS.map((order) => (
+            {activeOrders.map((order) => (
               <button
                 key={order.id}
                 onClick={() => onNavigate('track')}
@@ -80,20 +97,14 @@ export default function HomeScreen({ t, onNavigate }) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs font-bold text-gray-500">{order.tracking_code}</span>
-                    <StatusBadge status={order.status} label={t(`status_${order.status}`)} />
+                    <span className="text-xs font-bold text-gray-500">{order.tracking_code ?? '—'}</span>
+                    <StatusBadge status={order.status ?? 'pending'} label={t(`status_${order.status ?? 'pending'}`)} />
                   </div>
                   <p className="text-xs text-gray-500 truncate">
-                    {order.pickup} → {order.delivery}
+                    {(order.pickup_label ?? '—')} → {(order.delivery_label ?? '—')}
                   </p>
                 </div>
-                <div className="flex flex-col items-end shrink-0">
-                  <div className="flex items-center gap-1 text-xs text-brand-500 font-semibold">
-                    <Clock size={12} />
-                    {order.eta} {t('minutes')}
-                  </div>
-                  <ChevronRight size={14} className="text-gray-300 mt-1" />
-                </div>
+                <ChevronRight size={14} className="text-gray-300 shrink-0" />
               </button>
             ))}
           </div>

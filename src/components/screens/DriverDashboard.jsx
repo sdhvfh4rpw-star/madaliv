@@ -7,100 +7,42 @@ import { splitCommission, formatAr, formatKm, DRIVER_RATE } from '../../lib/pric
 import { subscribeToDriverBalance } from '../../lib/supabase'
 import { useNotifications } from '../../contexts/NotificationContext'
 
-const MOCK_DRIVER_PROFILE = {
-  id: 'drv-mock-001',
-  name: 'Hery Andriamahefa',
-  rating: 4.9,
-  total_trips: 127,
+// Profil livreur neutre par défaut (aucune donnée fictive).
+// En production : alimenté par l'authentification livreur + Supabase.
+const DEFAULT_DRIVER_PROFILE = {
+  id: null,
+  name: 'Livreur',
+  rating: null,
+  total_trips: 0,
   validation_status: 'approved',
-  is_verified: true,
+  is_verified: false,
   photo_url: null,
   suspension_reason: null,
-  pending_balance: 18500,   // Solde à recevoir ce soir (mis à jour par Realtime)
+  pending_balance: 0,
 }
 
-// Coordonnées réelles Antananarivo
-const MOCK_PENDING = [
-  {
-    id: 101,
-    tracking_code: 'MDL-3012',
-    pickup:   { lat: -18.9108, lng: 47.5258, label: 'Tsaralalàna' },
-    delivery: { lat: -18.9350, lng: 47.5270, label: 'Ankadifotsy' },
-    type: '📦',
-    distance_km: 2.4,
-    price: 3900,
-    urgent: true,
-  },
-  {
-    id: 102,
-    tracking_code: 'MDL-3015',
-    pickup:   { lat: -18.9161, lng: 47.5360, label: 'Analakely' },
-    delivery: { lat: -18.8950, lng: 47.5520, label: 'Ivandry' },
-    type: '📄',
-    distance_km: 4.1,
-    price: 5000,
-    urgent: false,
-  },
-]
+// Aucune course fictive — listes vides au démarrage.
+const INITIAL_PENDING = []
+const INITIAL_ACTIVE  = []
+// Historique réel : à brancher sur Supabase (driver_payments / orders) une fois
+// l'authentification livreur en place. Vide tant qu'il n'y a pas de données.
+const DRIVER_HISTORY = []
 
-const MOCK_ACTIVE = [
-  {
-    id: 99,
-    tracking_code: 'MDL-2990',
-    status: 'accepted',
-    pickup:   { lat: -18.9215, lng: 47.5310, label: 'Behoririka' },
-    delivery: { lat: -18.9260, lng: 47.5190, label: 'Isotry' },
-    client: 'Haingo R.',
-    phone: '+261 33 98 765 43',
-    recipient_phone: '+261 34 11 223 34',
-    price: 5000,
-    distance_km: 3.2,
-    notes: 'Maison rouge après le 3ème escalier, appelle en arrivant au carrefour Total',
-    pickup_proof: null,
-    delivery_proof: null,
-  }
-]
-
-// ── Historique des courses (mock — en prod : requête Supabase) ──
-const MOCK_HISTORY = [
-  {
-    date:  '2026-06-04',
-    trips: [
-      { id:'h1', code:'MDL-2990', pickup:'Behoririka',   delivery:'Isotry',         price:5000,  rating:5, time:'18:42' },
-      { id:'h2', code:'MDL-2985', pickup:'Analakely',    delivery:'Ankadifotsy',    price:3900,  rating:4, time:'16:15' },
-      { id:'h3', code:'MDL-2980', pickup:'Tsaralalàna',  delivery:'Ambohimanarina', price:8000,  rating:5, time:'13:30' },
-    ],
-  },
-  {
-    date:  '2026-06-03',
-    trips: [
-      { id:'h4', code:'MDL-2970', pickup:'Mahamasina',   delivery:'Ivandry',        price:10200, rating:4, time:'17:55' },
-      { id:'h5', code:'MDL-2965', pickup:'67 Ha',        delivery:'Anosibe',        price:3900,  rating:5, time:'14:20' },
-    ],
-  },
-  {
-    date:  '2026-06-02',
-    trips: [
-      { id:'h6', code:'MDL-2955', pickup:'Andravoahangy',delivery:'Ankorondrano',   price:6600,  rating:3, time:'19:10' },
-      { id:'h7', code:'MDL-2950', pickup:'Behoririka',   delivery:'67 Ha',          price:5000,  rating:5, time:'11:05' },
-      { id:'h8', code:'MDL-2945', pickup:'Isotry',       delivery:'Ambohipo',       price:10200, rating:4, time:'09:30' },
-    ],
-  },
-]
-
-function HistorySection({ t }) {
+function HistorySection() {
   const [open, setOpen] = useState(false)
 
-  const totalTrips   = MOCK_HISTORY.flatMap(d => d.trips).length
-  const totalEarned  = MOCK_HISTORY.flatMap(d => d.trips)
-    .reduce((s, tr) => s + splitCommission(tr.price).driverShare, 0)
+  const allTrips     = DRIVER_HISTORY.flatMap(d => d?.trips ?? [])
+  const totalTrips   = allTrips.length
+  const totalEarned  = allTrips.reduce((s, tr) => s + splitCommission(tr?.price ?? 0).driverShare, 0)
 
   function formatDate(dateStr) {
-    const d    = new Date(dateStr)
-    const days = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
-    const today = new Date().toDateString()
-    if (d.toDateString() === today) return 'Aujourd\'hui'
-    return `${days[d.getDay()]} ${d.getDate()} ${d.toLocaleDateString('fr-FR',{month:'short'})}`
+    try {
+      const d    = new Date(dateStr)
+      if (isNaN(d.getTime())) return '—'
+      const days = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
+      if (d.toDateString() === new Date().toDateString()) return 'Aujourd\'hui'
+      return `${days[d.getDay()]} ${d.getDate()} ${d.toLocaleDateString('fr-FR',{month:'short'})}`
+    } catch { return '—' }
   }
 
   return (
@@ -122,43 +64,39 @@ function HistorySection({ t }) {
 
       {open && (
         <div className="flex flex-col gap-3 mt-1 animate-fade-in">
-          {MOCK_HISTORY.map(day => {
-            const dayGain = day.trips.reduce((s, tr) => s + splitCommission(tr.price).driverShare, 0)
+          {DRIVER_HISTORY.length === 0 ? (
+            <div className="card text-center py-6 text-gray-400 text-sm">
+              Aucune course effectuée
+            </div>
+          ) : DRIVER_HISTORY.map(day => {
+            const trips = day?.trips ?? []
+            const dayGain = trips.reduce((s, tr) => s + splitCommission(tr?.price ?? 0).driverShare, 0)
             return (
-              <div key={day.date}>
-                {/* En-tête du jour */}
+              <div key={day?.date ?? Math.random()}>
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">
-                    {formatDate(day.date)}
-                  </p>
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">{formatDate(day?.date)}</p>
                   <div className="flex items-center gap-3 text-xs">
-                    <span className="text-gray-400">{day.trips.length} course{day.trips.length > 1 ? 's' : ''}</span>
+                    <span className="text-gray-400">{trips.length} course{trips.length > 1 ? 's' : ''}</span>
                     <span className="font-extrabold text-green-600">{formatAr(dayGain)}</span>
                   </div>
                 </div>
-
-                {/* Courses du jour */}
                 <div className="flex flex-col gap-1.5">
-                  {day.trips.map(trip => {
-                    const share = splitCommission(trip.price).driverShare
+                  {trips.map(trip => {
+                    const share = splitCommission(trip?.price ?? 0).driverShare
+                    const rating = trip?.rating ?? 0
                     return (
-                      <div key={trip.id} className="bg-gray-50 rounded-xl px-3 py-2.5 flex items-center gap-3">
-                        {/* Code + heure */}
+                      <div key={trip?.id ?? Math.random()} className="bg-gray-50 rounded-xl px-3 py-2.5 flex items-center gap-3">
                         <div className="shrink-0">
-                          <p className="text-xs font-bold font-mono text-gray-700">{trip.code}</p>
-                          <p className="text-[10px] text-gray-400 font-mono">{trip.time}</p>
+                          <p className="text-xs font-bold font-mono text-gray-700">{trip?.code ?? '—'}</p>
+                          <p className="text-[10px] text-gray-400 font-mono">{trip?.time ?? ''}</p>
                         </div>
-
-                        {/* Trajet */}
                         <div className="flex-1 min-w-0 text-xs text-gray-500 truncate">
-                          {trip.pickup} → {trip.delivery}
+                          {trip?.pickup ?? '—'} → {trip?.delivery ?? '—'}
                         </div>
-
-                        {/* Note + gain */}
                         <div className="text-right shrink-0">
                           <p className="font-extrabold text-green-600 text-sm">{formatAr(share)}</p>
                           <p className="text-yellow-500 text-[10px]">
-                            {'★'.repeat(trip.rating)}{'☆'.repeat(5 - trip.rating)}
+                            {'★'.repeat(rating)}{'☆'.repeat(Math.max(0, 5 - rating))}
                           </p>
                         </div>
                       </div>
@@ -168,15 +106,6 @@ function HistorySection({ t }) {
               </div>
             )
           })}
-
-          {/* Total global */}
-          <div className="card bg-gray-900 text-white flex items-center justify-between">
-            <div>
-              <p className="text-xs text-gray-400">Total {MOCK_HISTORY.length} derniers jours</p>
-              <p className="font-bold text-sm">{totalTrips} courses effectuées</p>
-            </div>
-            <p className="font-extrabold text-xl text-green-400">{formatAr(totalEarned)}</p>
-          </div>
         </div>
       )}
     </div>
@@ -233,10 +162,10 @@ function PhotoProofButton({ label, done, onCapture, t }) {
 }
 
 export default function DriverDashboard({ t }) {
-  const [profile]           = useState(MOCK_DRIVER_PROFILE)
+  const [profile]           = useState(DEFAULT_DRIVER_PROFILE)
   const [available, setAvailable] = useState(profile.validation_status === 'approved')
-  const [pending, setPending]     = useState(MOCK_PENDING)
-  const [active, setActive]       = useState(MOCK_ACTIVE)
+  const [pending, setPending]     = useState(INITIAL_PENDING)
+  const [active, setActive]       = useState(INITIAL_ACTIVE)
 
   const { notify } = useNotifications()
 
@@ -396,11 +325,11 @@ export default function DriverDashboard({ t }) {
           </div>
         )}
 
-        {/* Stats */}
+        {/* Stats — vraies valeurs (0 tant qu'aucune donnée) */}
         <div className="flex gap-3 relative">
-          <StatCard icon={TrendingUp} label={t('todayEarnings')} value="18 500 Ar" color="bg-brand-500" />
-          <StatCard icon={Bike}       label={t('todayTrips')}    value="7"          color="bg-blue-500" />
-          <StatCard icon={Star}       label={t('rating')}        value={profile.rating} color="bg-yellow-500" />
+          <StatCard icon={TrendingUp} label={t('todayEarnings')} value={formatAr(0)} color="bg-brand-500" />
+          <StatCard icon={Bike}       label={t('todayTrips')}    value="0"           color="bg-blue-500" />
+          <StatCard icon={Star}       label={t('rating')}        value={profile.rating ?? '—'} color="bg-yellow-500" />
         </div>
 
         {/* Solde à recevoir ce soir */}
@@ -637,7 +566,7 @@ export default function DriverDashboard({ t }) {
         )}
 
         {/* ── Historique des courses ───────────────────────── */}
-        <HistorySection t={t} />
+        <HistorySection />
       </div>
     </div>
   )

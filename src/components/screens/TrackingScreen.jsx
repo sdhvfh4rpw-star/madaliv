@@ -9,34 +9,6 @@ import { useRealtimeOrder } from '../../hooks/useRealtimeOrder'
 
 const STATUS_FLOW = ['pending', 'accepted', 'pickup', 'ontheway', 'delivered']
 
-// Coordonnées réelles Antananarivo
-const MOCK_DRIVER = {
-  id: 'drv1',
-  name: 'Faniry Rakoto',
-  phone: '+261 34 12 345 67',
-  rating: 4.8,
-  total_trips: 342,
-  bike_model: 'Honda CG 125',
-  bike_color: 'Rouge',
-  is_verified: true,
-  photo_url: null,
-}
-
-const MOCK_ORDER = {
-  id: 1,
-  tracking_code: 'MDL-2847',
-  status: 'ontheway',
-  pickup:   { lat: -18.9161, lng: 47.5360, label: 'Analakely' },
-  delivery: { lat: -18.9100, lng: 47.4980, label: 'Ambohimanarina' },
-  eta: 14,
-  driver: MOCK_DRIVER,
-  recipient_phone: '+261 34 98 765 43',
-  pickup_proof_url:    null,
-  delivery_proof_url:  null,
-  pickup_proof_at:     new Date(Date.now() - 10 * 60000).toISOString(),
-  delivery_proof_at:   null,
-}
-
 // ── Barre de progression ─────────────────────────────────────
 function ProgressBar({ status }) {
   const current = STATUS_FLOW.indexOf(status)

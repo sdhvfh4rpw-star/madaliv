@@ -238,6 +238,33 @@ export async function getDriverActiveOrders(driverId) {
   return data ?? []
 }
 
+/**
+ * Toutes les commandes (admin). Ultra-défensive → [] en cas d'erreur.
+ * Joint le nom du client et du livreur via les relations FK.
+ */
+export async function getAllOrders(limit = 100) {
+  try {
+    const { data, error } = await supabase
+      .from('orders')
+      .select(`
+        id, tracking_code, status, price_ariary, commission, driver_share,
+        distance_km, is_urgent, pickup_label, delivery_label, created_at,
+        payment_method, payment_status,
+        client:clients(name), driver:drivers(name)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(limit)
+    if (error) {
+      console.error('[getAllOrders] Supabase error:', error.message)
+      return []
+    }
+    return Array.isArray(data) ? data : []
+  } catch (err) {
+    console.error('[getAllOrders] exception:', err)
+    return []
+  }
+}
+
 // ══════════════════════════════════════════════════════════════
 // DRIVERS
 // ══════════════════════════════════════════════════════════════

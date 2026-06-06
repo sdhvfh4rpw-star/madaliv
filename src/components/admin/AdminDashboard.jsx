@@ -7,47 +7,15 @@ import {
 } from 'lucide-react'
 import { useAdminAuth } from '../../contexts/AdminAuthContext'
 import { splitCommission, formatAr, COMMISSION_RATE } from '../../lib/pricing'
-import { getAdminStats, getRecentOrders, getDriversWithBalance, payDriver, payAllDrivers } from '../../lib/supabase'
+import { getAdminStats, getRecentOrders, getDriversWithBalance, getPendingDrivers, payDriver, payAllDrivers } from '../../lib/supabase'
 
-// ── Données mock ─────────────────────────────────────────────
-const MOCK_STATS = {
-  driversTotal:     12,
-  driversPending:    3,
-  driversApproved:   7,
-  driversSuspended:  2,
-  ordersToday:      34,
-  ordersActive:      8,
-  ordersDelivered:  24,
-  ordersCancelled:   2,
-  revenueToday:  68000,
-  revenueMTD:   1420000,
-  avgRating:      4.6,
-  avgDelivery:     22,
+// Aucune donnée fictive — l'admin affiche uniquement les vraies données Supabase.
+// Structure de stats vide (tous les compteurs à 0) en attendant le chargement / si la base est vide.
+const EMPTY_STATS = {
+  drivers_total: 0, drivers_pending: 0, drivers_approved: 0, drivers_suspended: 0,
+  orders_today: 0, orders_active: 0, orders_delivered_today: 0, orders_cancelled_today: 0,
+  revenue_today: 0, commission_today: 0, driver_payout_today: 0, avg_rating: 0,
 }
-
-const MOCK_RECENT_ORDERS = [
-  { id: 'o1', code: 'MDL-3021', status: 'ontheway',  client: 'Haingo R.',  driver: 'Faniry R.',  price: 3900, time: '14:32' },
-  { id: 'o2', code: 'MDL-3020', status: 'pending',   client: 'Vola M.',    driver: null,          price: 5000, time: '14:28' },
-  { id: 'o3', code: 'MDL-3019', status: 'delivered', client: 'Tojo A.',    driver: 'Hery A.',    price: 8000, time: '14:15' },
-  { id: 'o4', code: 'MDL-3018', status: 'accepted',  client: 'Nirina H.',  driver: 'Rivo R.',    price: 5000, time: '14:09' },
-  { id: 'o5', code: 'MDL-3017', status: 'cancelled', client: 'Soa R.',     driver: null,          price: 3000, time: '13:55' },
-]
-
-// Commission du jour = 15% du revenu total livré
-const commissionToday   = Math.round(MOCK_STATS.revenueToday * COMMISSION_RATE)
-const driverPayoutToday = MOCK_STATS.revenueToday - commissionToday
-
-const MOCK_DRIVERS_BALANCE = [
-  { id: 'drv1', name: 'Faniry Rakoto',     phone: '+261 34 12 345 67', pending_balance: 18500, total_trips: 342 },
-  { id: 'drv2', name: 'Hery Andriamahefa', phone: '+261 33 45 678 90', pending_balance: 12750, total_trips: 127 },
-  { id: 'drv3', name: 'Rivo Rakotondrabe', phone: '+261 34 11 223 34', pending_balance:  8500, total_trips:  54 },
-]
-
-const MOCK_PENDING_DRIVERS = [
-  { id: 'd1', name: 'Rivo Rakotondrabe', city: 'Antananarivo', submitted_at: new Date(Date.now() - 2*3600000) },
-  { id: 'd2', name: 'Lalaina Andriamanga', city: 'Toamasina',  submitted_at: new Date(Date.now() - 5*3600000) },
-  { id: 'd3', name: 'Soa Randriamaro',   city: 'Antsirabe',   submitted_at: new Date(Date.now() - 9*3600000) },
-]
 
 const STATUS_STYLE = {
   pending:   { bg: 'bg-yellow-500/10 text-yellow-400',  dot: 'bg-yellow-400',  label: 'En attente' },
@@ -92,24 +60,6 @@ function DarkStatusBadge({ status }) {
   )
 }
 
-// ── Mini chart (barres SVG) ───────────────────────────────────
-function MiniBarChart({ data, color = '#E84C1E' }) {
-  const max = Math.max(...data)
-  return (
-    <div className="flex items-end gap-1 h-12">
-      {data.map((v, i) => (
-        <div
-          key={i}
-          className="flex-1 rounded-sm transition-all"
-          style={{
-            height: `${(v / max) * 100}%`,
-            backgroundColor: i === data.length - 1 ? color : color + '50',
-          }}
-        />
-      ))}
-    </div>
-  )
-}
 
 // ── Composant principal ──────────────────────────────────────
 export default function AdminDashboard() {
@@ -121,11 +71,12 @@ export default function AdminDashboard() {
   const [statsLoading, setStatsLoading] = useState(true)
   const [statsError,   setStatsError]   = useState(null)
 
-  // ── Soldes livreurs ───────────────────────────────────────
-  const [driversBalance,  setDriversBalance]  = useState(MOCK_DRIVERS_BALANCE)
-  const [payingId,        setPayingId]        = useState(null)   // id en cours de paiement
+  // ── Soldes livreurs + livreurs en attente ─────────────────
+  const [driversBalance,  setDriversBalance]  = useState([])
+  const [pendingDrivers,  setPendingDrivers]  = useState([])
+  const [payingId,        setPayingId]        = useState(null)
   const [payingAll,       setPayingAll]       = useState(false)
-  const [payToast,        setPayToast]        = useState(null)   // { msg, type }
+  const [payToast,        setPayToast]        = useState(null)
 
   const [time, setTime] = useState(new Date())
   const [refreshing, setRefreshing] = useState(false)
@@ -134,19 +85,25 @@ export default function AdminDashboard() {
     setStatsLoading(true)
     setStatsError(null)
     try {
-      const [s, orders, balances] = await Promise.all([
-        getAdminStats(),
-        getRecentOrders(5),
-        getDriversWithBalance().catch(() => null),
+      // Chaque appel est isolé : une table vide/erreur n'affecte pas les autres.
+      const [s, orders, balances, pending] = await Promise.all([
+        getAdminStats().catch(() => null),
+        getRecentOrders(5).catch(() => []),
+        getDriversWithBalance().catch(() => []),
+        getPendingDrivers().catch(() => []),
       ])
-      setStats(s)
-      setRecentOrders(orders)
-      if (balances?.length) setDriversBalance(balances)
+      setStats(s ?? EMPTY_STATS)
+      setRecentOrders(Array.isArray(orders) ? orders : [])
+      setDriversBalance(Array.isArray(balances) ? balances : [])
+      setPendingDrivers(Array.isArray(pending) ? pending : [])
     } catch (err) {
       console.error('[AdminDashboard]', err)
       setStatsError(err.message)
-      setStats(MOCK_STATS)
-      setRecentOrders(MOCK_RECENT_ORDERS)
+      // États vides — jamais de fausses données
+      setStats(EMPTY_STATS)
+      setRecentOrders([])
+      setDriversBalance([])
+      setPendingDrivers([])
     } finally {
       setStatsLoading(false)
     }
@@ -199,7 +156,7 @@ export default function AdminDashboard() {
   }
 
   // Utiliser stats réelles ou mock
-  const s = stats ?? MOCK_STATS
+  const s = stats ?? EMPTY_STATS
 
   const greeting = time.getHours() < 12 ? 'Bonjour' : time.getHours() < 18 ? 'Bon après-midi' : 'Bonsoir'
 
@@ -411,21 +368,29 @@ export default function AdminDashboard() {
       {/* ── Graphe + commandes récentes ───────────────────── */}
       <div className="grid lg:grid-cols-3 gap-4">
 
-        {/* Graphe revenus 7 jours */}
+        {/* Revenus du jour (données réelles) */}
         <div className="lg:col-span-2 bg-gray-900 border border-gray-800 rounded-2xl p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-white font-bold text-sm">Revenus — 7 derniers jours</h2>
-              <p className="text-gray-500 text-xs mt-0.5">En ariary</p>
+              <h2 className="text-white font-bold text-sm">Revenus du jour</h2>
+              <p className="text-gray-500 text-xs mt-0.5">Commandes livrées aujourd'hui</p>
             </div>
-            <span className="text-brand-400 text-xs font-semibold">+18% vs sem. passée</span>
           </div>
-          <MiniBarChart data={[32000, 45000, 28000, 51000, 38000, 62000, 68000]} />
-          <div className="flex justify-between mt-2">
-            {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Auj'].map(d => (
-              <span key={d} className="text-[10px] text-gray-600 flex-1 text-center">{d}</span>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: 'Revenu encaissé', value: formatAr(s.revenue_today ?? 0),       color: 'text-white' },
+              { label: 'Commission 15%',  value: formatAr(s.commission_today ?? 0),    color: 'text-violet-400' },
+              { label: 'Part livreurs',   value: formatAr(s.driver_payout_today ?? 0), color: 'text-green-400' },
+            ].map(({ label, value, color }) => (
+              <div key={label} className="bg-gray-800/40 rounded-xl px-3 py-3">
+                <p className="text-gray-500 text-[10px] uppercase tracking-wide mb-1">{label}</p>
+                <p className={`font-extrabold text-sm ${color}`}>{statsLoading ? '…' : value}</p>
+              </div>
             ))}
           </div>
+          {!statsLoading && (s.orders_delivered_today ?? 0) === 0 && (
+            <p className="text-gray-600 text-xs text-center mt-4">Aucune livraison aujourd'hui</p>
+          )}
         </div>
 
         {/* Répartition statuts */}
@@ -476,20 +441,26 @@ export default function AdminDashboard() {
               Voir tout <ArrowRight size={12} />
             </Link>
           </div>
+          {(recentOrders?.length ?? 0) === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 gap-2">
+              <Package size={26} className="text-gray-700" />
+              <p className="text-gray-500 text-sm">{statsLoading ? 'Chargement…' : 'Aucune commande'}</p>
+            </div>
+          ) : (
           <div className="divide-y divide-gray-800/60">
-            {(recentOrders.length > 0 ? recentOrders : MOCK_RECENT_ORDERS).map(order => {
-              // Normalise les deux formats (RPC réel vs mock)
-              const code   = order.tracking_code ?? order.code ?? '—'
-              const status = order.status ?? 'pending'
-              const client = order.client_name ?? order.client ?? '—'
-              const driver = order.driver_name ?? order.driver
-              const price  = order.price_ariary ?? order.price ?? 0
-              const comm   = order.commission ?? splitCommission(price).commission
-              const time   = order.created_at
-                ? new Date(order.created_at).toLocaleTimeString('fr',{hour:'2-digit',minute:'2-digit'})
-                : (order.time ?? '')
+            {recentOrders.map(order => {
+              const o      = order ?? {}
+              const code   = o.tracking_code ?? '—'
+              const status = o.status ?? 'pending'
+              const client = o.client_name ?? '—'
+              const driver = o.driver_name ?? null
+              const price  = o.price_ariary ?? 0
+              const comm   = o.commission ?? splitCommission(price).commission
+              const time   = o.created_at
+                ? new Date(o.created_at).toLocaleTimeString('fr',{hour:'2-digit',minute:'2-digit'})
+                : ''
               return (
-              <div key={order.id} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-800/40 transition">
+              <div key={o.id ?? Math.random()} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-800/40 transition">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-white text-xs font-bold font-mono">{code}</span>
@@ -501,7 +472,7 @@ export default function AdminDashboard() {
                   </p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="text-white text-xs font-semibold">{price.toLocaleString()} Ar</p>
+                  <p className="text-white text-xs font-semibold">{(price ?? 0).toLocaleString()} Ar</p>
                   {status !== 'cancelled' && (
                     <p className="text-violet-400 text-[10px] font-semibold">
                       comm. {formatAr(comm)}
@@ -512,6 +483,7 @@ export default function AdminDashboard() {
               </div>
             )})}
           </div>
+          )}
         </div>
 
         {/* Livreurs en attente */}
@@ -519,9 +491,9 @@ export default function AdminDashboard() {
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
             <div className="flex items-center gap-2">
               <h2 className="text-white font-bold text-sm">Livreurs en attente</h2>
-              {MOCK_PENDING_DRIVERS.length > 0 && (
+              {(pendingDrivers?.length ?? 0) > 0 && (
                 <span className="bg-yellow-500 text-black text-[10px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center">
-                  {MOCK_PENDING_DRIVERS.length}
+                  {pendingDrivers.length}
                 </span>
               )}
             </div>
@@ -530,34 +502,40 @@ export default function AdminDashboard() {
             </Link>
           </div>
 
-          {MOCK_PENDING_DRIVERS.length === 0 ? (
+          {(pendingDrivers?.length ?? 0) === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 gap-2">
               <CheckCircle2 size={28} className="text-green-500/40" />
-              <p className="text-gray-500 text-sm">Aucune candidature en attente</p>
+              <p className="text-gray-500 text-sm">{statsLoading ? 'Chargement…' : 'Aucune candidature en attente'}</p>
             </div>
           ) : (
             <div className="divide-y divide-gray-800/60">
-              {MOCK_PENDING_DRIVERS.map(d => {
-                const hrs  = Math.floor((Date.now() - new Date(d.submitted_at)) / 3600000)
-                const mins = Math.floor(((Date.now() - new Date(d.submitted_at)) % 3600000) / 60000)
+              {pendingDrivers.map(d => {
+                const dr = d ?? {}
+                let agoLabel = ''
+                try {
+                  const ms   = Date.now() - new Date(dr.created_at ?? dr.submitted_at).getTime()
+                  if (isFinite(ms) && ms >= 0) {
+                    const hrs  = Math.floor(ms / 3600000)
+                    const mins = Math.floor((ms % 3600000) / 60000)
+                    agoLabel = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`
+                  }
+                } catch { agoLabel = '' }
                 return (
-                  <div key={d.id} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-800/40 transition">
+                  <div key={dr.id ?? Math.random()} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-800/40 transition">
                     <div className="w-9 h-9 rounded-xl bg-gray-800 flex items-center justify-center shrink-0">
                       <Bike size={16} className="text-gray-400" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-white text-sm font-semibold truncate">{d.name}</p>
-                      <p className="text-gray-500 text-xs">{d.city}</p>
+                      <p className="text-white text-sm font-semibold truncate">{dr.name ?? 'Sans nom'}</p>
+                      <p className="text-gray-500 text-xs">{dr.city ?? '—'}</p>
                     </div>
                     <div className="text-right shrink-0">
-                      <div className="flex items-center gap-1 text-yellow-400/70 text-[10px] font-mono">
-                        <Clock size={10} />
-                        {hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`}
-                      </div>
-                      <Link
-                        to="/admin/drivers"
-                        className="text-[10px] text-brand-400 hover:text-brand-300 font-semibold"
-                      >
+                      {agoLabel && (
+                        <div className="flex items-center gap-1 text-yellow-400/70 text-[10px] font-mono">
+                          <Clock size={10} /> {agoLabel}
+                        </div>
+                      )}
+                      <Link to="/admin/drivers" className="text-[10px] text-brand-400 hover:text-brand-300 font-semibold">
                         Traiter →
                       </Link>
                     </div>

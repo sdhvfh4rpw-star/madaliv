@@ -1,17 +1,27 @@
-import { useState } from 'react'
-import { Search, Eye, Ban, Package, MapPin, Navigation, User, TrendingUp, Bike } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Search, Eye, Ban, Package, MapPin, Navigation, User, TrendingUp, Bike, RefreshCw } from 'lucide-react'
 import { splitCommission, formatAr } from '../../lib/pricing'
+import { getAllOrders } from '../../lib/supabase'
 
-const ALL_ORDERS = [
-  { id:'o1',  code:'MDL-3021', status:'ontheway',  client:'Haingo R.',  driver:'Faniry Rakoto',  pickup:'Analakely',    delivery:'Ambohimanarina', price:3900,  distance_km:2.4, urgent:true,  created:'14:32' },
-  { id:'o2',  code:'MDL-3020', status:'pending',   client:'Vola M.',    driver:null,              pickup:'Tsaralalàna',  delivery:'Ankadifotsy',    price:5000,  distance_km:3.1, urgent:false, created:'14:28' },
-  { id:'o3',  code:'MDL-3019', status:'delivered', client:'Tojo A.',    driver:'Hery Andria.',   pickup:'Behoririka',   delivery:'Isotry',         price:8000,  distance_km:6.8, urgent:false, created:'14:15' },
-  { id:'o4',  code:'MDL-3018', status:'accepted',  client:'Nirina H.',  driver:'Rivo Rako.',     pickup:'Analakely',    delivery:'Ivandry',        price:5000,  distance_km:4.1, urgent:false, created:'14:09' },
-  { id:'o5',  code:'MDL-3017', status:'cancelled', client:'Soa R.',     driver:null,              pickup:'Behoririka',   delivery:'Mahamasina',     price:3000,  distance_km:1.9, urgent:false, created:'13:55' },
-  { id:'o6',  code:'MDL-3016', status:'delivered', client:'Rado M.',    driver:'Faniry Rakoto',  pickup:'Isotry',       delivery:'67 Ha',          price:10400, distance_km:8.0, urgent:true,  created:'13:40' },
-  { id:'o7',  code:'MDL-3015', status:'ontheway',  client:'Niry A.',    driver:'Lalaina A.',     pickup:'Tsaralalàna',  delivery:'Ambohipo',       price:8000,  distance_km:7.3, urgent:false, created:'13:30' },
-  { id:'o8',  code:'MDL-3014', status:'pickup',    client:'Fara R.',    driver:'Hery Andria.',   pickup:'Analakely',    delivery:'Ankadifotsy',    price:5000,  distance_km:2.9, urgent:false, created:'13:15' },
-]
+/** Normalise une commande Supabase vers le format d'affichage. */
+function normalizeOrder(o) {
+  const x = o ?? {}
+  return {
+    id:          x.id ?? Math.random().toString(36).slice(2),
+    code:        x.tracking_code ?? '—',
+    status:      x.status ?? 'pending',
+    client:      x.client?.name ?? '—',
+    driver:      x.driver?.name ?? null,
+    pickup:      x.pickup_label ?? '—',
+    delivery:    x.delivery_label ?? '—',
+    price:       x.price_ariary ?? 0,
+    distance_km: x.distance_km ?? null,
+    urgent:      Boolean(x.is_urgent),
+    created:     x.created_at
+      ? new Date(x.created_at).toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' })
+      : '',
+  }
+}
 
 const STATUS_CONFIG = {
   pending:   { label:'En attente', cls:'bg-yellow-500/15 text-yellow-300 border-yellow-500/25' },
@@ -25,17 +35,33 @@ const STATUS_CONFIG = {
 const STATUS_FILTERS = ['all', 'pending', 'accepted', 'pickup', 'ontheway', 'delivered', 'cancelled']
 
 export default function AdminOrders() {
+  const [orders,  setOrders]  = useState([])
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [search,  setSearch]  = useState('')
   const [filter,  setFilter]  = useState('all')
   const [detail,  setDetail]  = useState(null)
 
-  const filtered = ALL_ORDERS.filter(o => {
+  async function load() {
+    const raw = await getAllOrders(200)   // jamais d'exception → []
+    setOrders(Array.isArray(raw) ? raw.map(normalizeOrder) : [])
+  }
+  useEffect(() => {
+    setLoading(true)
+    load().finally(() => setLoading(false))
+  }, [])
+  async function handleRefresh() {
+    setRefreshing(true); await load(); setRefreshing(false)
+  }
+
+  const allOrders = Array.isArray(orders) ? orders : []
+  const filtered = allOrders.filter(o => {
     const matchStatus = filter === 'all' || o.status === filter
     const q = search.toLowerCase()
     const matchSearch = !q
-      || o.code.toLowerCase().includes(q)
-      || o.client.toLowerCase().includes(q)
-      || (o.driver || '').toLowerCase().includes(q)
+      || (o.code   ?? '').toLowerCase().includes(q)
+      || (o.client ?? '').toLowerCase().includes(q)
+      || (o.driver ?? '').toLowerCase().includes(q)
     return matchStatus && matchSearch
   })
 
@@ -48,9 +74,20 @@ export default function AdminOrders() {
   return (
     <div className="flex flex-col gap-5 max-w-7xl">
       {/* Header */}
-      <div>
-        <h1 className="text-white font-extrabold text-2xl">Commandes</h1>
-        <p className="text-gray-400 text-sm mt-1">{ALL_ORDERS.length} commandes au total</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-white font-extrabold text-2xl">Commandes</h1>
+          <p className="text-gray-400 text-sm mt-1">
+            {loading ? 'Chargement…' : `${allOrders.length} commande${allOrders.length > 1 ? 's' : ''} au total`}
+          </p>
+        </div>
+        <button
+          onClick={handleRefresh}
+          className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-semibold px-4 py-2.5 rounded-xl transition"
+        >
+          <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
+          Actualiser
+        </button>
       </div>
 
       {/* Filtres */}
@@ -78,7 +115,7 @@ export default function AdminOrders() {
             >
               {s === 'all' ? 'Toutes' : STATUS_CONFIG[s]?.label}
               {s !== 'all' && (
-                <span className="ml-1.5 opacity-60">{ALL_ORDERS.filter(o => o.status === s).length}</span>
+                <span className="ml-1.5 opacity-60">{allOrders.filter(o => o.status === s).length}</span>
               )}
             </button>
           ))}
@@ -117,7 +154,7 @@ export default function AdminOrders() {
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 gap-2">
             <Package size={32} className="text-gray-700" />
-            <p className="text-gray-500 text-sm">Aucune commande trouvée</p>
+            <p className="text-gray-500 text-sm">{loading ? 'Chargement…' : 'Aucune commande'}</p>
           </div>
         ) : (
           <div className="divide-y divide-gray-800/60">
